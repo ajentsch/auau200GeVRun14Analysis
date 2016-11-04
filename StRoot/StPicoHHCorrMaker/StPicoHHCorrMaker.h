@@ -50,10 +50,9 @@ class StPicoHHCorrMaker : public StMaker
     StPicoHHCorrMaker() {}
     void readNextEvent();
 
-    bool isGoodPair(StKaonPion const*) const;
-    bool cutCheck(StKaonPion const*, double, double, double, double, double, double, double, double, double, double) const;
     int  getCentralityBin(int nTracks);
     int  getVzBin(double Vz);
+    bool checkDCAtoPV(float trackDCA);
 
     int NUM_PHI_BINS;
     int NUM_ETA_BINS;
@@ -87,28 +86,15 @@ class StPicoHHCorrMaker : public StMaker
     int nCentBins;
     int BUFFER_SIZE;
     
-             //  ptmin ptmax   decayLenMin&Max   daughterDCA kaon/pion pt kaon/pion DCA  DCA to PV
-        //if(!isGoodPair(kp)) continue;             
-        //if(!cutCheck(kp, 0.15,  20.0,  .0200,  999999.0,  .0055,  1.2,  1.2,  .008,  .008,  .0065)) { continue; }
-    
     double kaonPtCut;
     double pionPtCut;
     double hadronPtCutLow;
     double hadronPtCutHigh;
-    
-    //double d0PtLow;
-    //double d0PtHigh;
-    //double d0DecayLengthMin;
-    //double d0DecayLengthMax;
-    //double daughterDCA;
-    //double d0DaughterPionPtMin;
-    //double d0DaughterKaonPtMin;
+    float  trackDCAmax;
+    float  trackChi2max;
+ 
     double kaonDCA;
     double pionDCA;
-    //double d0DCAtoPV;
-    
-    //double D0InvMassLow;
-    //double D0InvMassHigh;
     
     bool DEBUG;                //important flags for debugging and for switching binning on and off
     bool DEBUG_MIX_BUFFER;
@@ -138,66 +124,22 @@ class StPicoHHCorrMaker : public StMaker
     
     TH1D* ptDist;
     TH1D* invMass;
-    //TH1D* USsiblingAngCorrPhi;
-    //TH1D* USsiblingAngCorrEta;
     TH1D* kaonDist;
     TH1D* pionDist;
     TH1D* likeSignBG;
     TH1D* invMassMinusBG;
-    //TH1D* D0EtaDist;
-    //TH1D* D0PhiDist;
-   
+    
     TH1D* eventCounter;
     
-    //TH1D* kaonDCAfromD0;
-    //TH1D* pionDCAfromD0;
-    //TH1D* decayLengthQA;
-    //TH1D* pointingAngleQA;
-    //TH1D* daughterDCAQA;
-    //TH1D* D0ptDist;
     TH1D* kaonPtDist;
     TH1D* pionPtDist;
     TH1D* kaonEtaDist;
     TH1D* pionEtaDist;
     TH1D* kaonPhiDist;
     TH1D* pionPhiDist;
-    TH1D* kaonDCAprimary;
-    TH1D* pionDCAprimary;
-    /*TH1D* invMassBin1;	
-    TH1D* invMassBin2;	
-    TH1D* invMassBin3;	
-    TH1D* invMassBin4;	
-    TH1D* invMassBin5;
-    TH1D* angCorrPhiBin1;
-    TH1D* angCorrEtaBin1;
-    TH2D* angCorr2DBin1;
-    TH1D* angCorrPhiBin2;
-    TH1D* angCorrEtaBin2;
-    TH2D* angCorr2DBin2;
-    TH1D* angCorrPhiBin3;
-    TH1D* angCorrEtaBin3;
-    TH2D* angCorr2DBin3;
-    TH1D* angCorrPhiBin4;
-    TH1D* angCorrEtaBin4;
-    TH2D* angCorr2DBin4;
-    TH1D* angCorrPhiBin5;
-    TH1D* angCorrEtaBin5;
-    TH2D* angCorr2DBin5;
-
-    TH1D* likeSignBin1;	
-    TH1D* likeSignBin2;	
-    TH1D* likeSignBin3;	
-    TH1D* likeSignBin4;	
-    TH1D* likeSignBin5;	 
-    TH1D* USminusLSBin1;
-    TH1D* USminusLSBin2;
-    TH1D* USminusLSBin3;
-    TH1D* USminusLSBin4;
-    TH1D* USminusLSBin5;*/
+    TH1D* DCAtoPrimaryVertex;
+    TH1D* DCAtoPrimaryVertexCut;
     
-    //TH1D* D0PeakPlusBG;
-    //TH1D* D0LikeSignBG;
-    //TH1D* D0PeakMinusBG;
     TH1D* trackCounter;    
 
     TH1D* hadronPtDist;
@@ -212,14 +154,13 @@ class StPicoHHCorrMaker : public StMaker
     TH1D* mixedEventKPInvMass;
     TH2D* dEdxVsPt;
     TH2D* invBetaVsPt;
-    //TH2D* mixedEventAngCorr2DAll;
-    //TH2D* fullCorr;
-    //
-    //TH2D* USsibling2DAngCorrAll;
-    //TH2D* LSsibling2DAngCorrAll;
     
-   // TH2D* USmixedEventAngCorr2DAll;
-   // TH2D* LSmixedEventAngCorr2DAll;
+    TH1D* hadronChi2;
+   
+    TH1D* pVtxX;
+    TH1D* pVtxY;
+    TH1D* pVtxZ;
+   
     
     TH1I* d0CountPerEvent;
 

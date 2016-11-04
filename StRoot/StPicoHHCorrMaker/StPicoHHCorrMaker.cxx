@@ -114,26 +114,15 @@ Int_t StPicoHHCorrMaker::Init()
     
     //--------------------CUTS------------------------------------------
    
-    kaonPtCut         = .15;
+    kaonPtCut         = .15;    // in GeV
     pionPtCut         = .15;
     
     hadronPtCutLow    = 0.15;
     hadronPtCutHigh   = 15.45;
     
-    //D0InvMassLow   = 1.82;
-    //D0InvMassHigh  = 1.90;
-    
-    //d0PtLow             = .15;
-    //d0PtHigh            = 20.0;
-    //d0DecayLengthMin    = .0200;
-    //d0DecayLengthMax    = 999999.0;
-    //daughterDCA         = .0055;
-    //d0DaughterPionPtMin = 1.2;
-    //d0DaughterKaonPtMin = 1.2;
-    //kaonDCA             = .008;
-    //pionDCA             = .008;
-    //d0DCAtoPV           = .0065;
-    
+    trackDCAmax       = 3.0;    //in centimeters
+    trackChi2max      = 3.0;
+   
 	//Run 14 MinBias triggers
     trigger[0] = 450050;
     trigger[1] = 450060;
@@ -234,38 +223,30 @@ Int_t StPicoHHCorrMaker::Init()
  
    
    //QA Histograms
-   eventCounter    = new TH1D("number of events used", "number of events used", 4, 0, 4);
-   trackCounter    = new TH1D("number of tracks per event", "number of tracks per event", 2000, 0, 1999);
-   kaonPtDist      = new TH1D("Kaon Pt Distribution", "Kaon Pt Distribution", 1000, 0, 5);
-   pionPtDist      = new TH1D("Pion Pt Distribution", "Pion Pt Distribution", 1000, 0, 5);
-   kaonEtaDist     = new TH1D("Kaon Eta Distribution", "Kaon Eta Distribution", 1000, -1, 1);
-   pionEtaDist     = new TH1D("Pion Eta Distribution", "Pion Eta Distribution", 1000, -1, 1);
-   kaonPhiDist     = new TH1D("Kaon Phi Distribution", "Kaon Phi Distribution", 1000, -2*TMath::Pi(), 2*TMath::Pi());
-   pionPhiDist     = new TH1D("Pion Phi Distribution", "Pion Phi Distribution", 1000, -2*TMath::Pi(), 2*TMath::Pi());
-   kaonDCAprimary  = new TH1D("DCA kaons from primary", "DCA kaons from primary", 500, 0.0, 0.5);
-   pionDCAprimary  = new TH1D("DCA pions from primary", "DCA pions from primary", 500, 0.0, 0.5);
+   eventCounter        = new TH1D("number of events used", "number of events used", 4, 0, 4);
+   trackCounter        = new TH1D("number of tracks per event", "number of tracks per event", 2000, 0, 1999);
+   kaonPtDist          = new TH1D("Kaon Pt Distribution", "Kaon Pt Distribution", 1000, 0, 5);
+   pionPtDist          = new TH1D("Pion Pt Distribution", "Pion Pt Distribution", 1000, 0, 5);
+   kaonEtaDist         = new TH1D("Kaon Eta Distribution", "Kaon Eta Distribution", 1000, -1, 1);
+   pionEtaDist         = new TH1D("Pion Eta Distribution", "Pion Eta Distribution", 1000, -1, 1);
+   kaonPhiDist         = new TH1D("Kaon Phi Distribution", "Kaon Phi Distribution", 1000, -2*TMath::Pi(), 2*TMath::Pi());
+   pionPhiDist         = new TH1D("Pion Phi Distribution", "Pion Phi Distribution", 1000, -2*TMath::Pi(), 2*TMath::Pi());
+   DCAtoPrimaryVertex  = new TH1D("track DCA to PV", "track DCA to PV", 500, 0.0, 10.0);
+   DCAtoPrimaryVertexCut = new TH1D("track DCA to PV cut check", "track DCA to PV cut check", 500, 0.0, 10.0);
+   //pionDCAprimary  = new TH1D("DCA pions from primary", "DCA pions from primary", 500, 0.0, 0.5);
    
    hadronPtDist    = new TH1D("Inclusive Hadron pt", "Inclusive Hadron pt", 1000, 0, 10);
    hadronPhiDist   = new TH1D("Inclusive Hadron Phi", "Inclusive Hadron Phi", 1000, -2*TMath::Pi(), 2*TMath::Pi());
    hadronEtaDist   = new TH1D("Inclusvie Hadron Eta", "Inclusive Hadron Eta", 1000, -2, 2);
+   hadronChi2      = new TH1D("Chi2 for hadron tracks", "Chi2 for hadron tracks", 500, 0, 10);
    
-  // kaonDCAfromD0   = new TH1D("DCA for kaons from D0", "DCA for kaons from D0", 500, 0.0, 0.5);
-  // pionDCAfromD0   = new TH1D("DCA for pions from D0", "DCA for pions from D0", 500, 0.0, 0.65);
-  // decayLengthQA   = new TH1D("D0 Candidate Decay Length (no mass cut)", "D0 Candidate Decay Length (no mass cut)", 500, 0.0, 1.5);
-  // pointingAngleQA = new TH1D("D0 Candidate Pointing Angle(no mass cut)", "D0 Candidate Pointing Angle (no mass cut)", 500, 0.0, 1.7);
-  // daughterDCAQA   = new TH1D("D0 Daughter DCA", "D0 Daughter DCA (no mass cut)", 500, 0.0, .01);
-
-   dEdxVsPt        = new TH2D("dEdx_vs_Pt", "dEdx_vs_Pt", 500, 0, 10, 500, 0, 15);
-   invBetaVsPt     = new TH2D("#Beta^{-1} Vs. Pt", "#Beta^{-1} Vs. Pt", 500, 0, 10, 500, 0, 4);
+   pVtxX           = new TH1D("X position of pVtx", "X position of pVtx", 500, -10, 10);
+   pVtxY           = new TH1D("Y position of pVtx", "Y position of pVtx", 500, -10, 10);
+   pVtxZ           = new TH1D("Z position of pVtx", "Z position of pVtx", 500, -7, 7);
    
-   //QA for mass-cut D0  
-   //D0ptDist        = new TH1D("D0 Candidate pt Dist (mass cut)", "D0 Candidate pt Dist (mass cut)", 1000, 0, 10);
-   //D0EtaDist       = new TH1D("D0 Eta Dist", "D0 #eta Dist. (mass cut)", 500, -1, 1);
-   //D0PhiDist       = new TH1D("D0 Phi Dist", "D0 #phi Dist. (mass cut)", 500, -2*TMath::Pi(), 2*TMath::Pi());
-   //D0PeakPlusBG    = new TH1D("D0PeakPlusBG", "D0PeakPlusBG", 50, 1.6, 2.1);
-   //D0LikeSignBG    = new TH1D("LikeSign peak range", "LikeSign peak range", 50, 1.6, 2.1);
-   //D0PeakMinusBG   = new TH1D("D0Peak", "D0Peak", 50, 1.6, 2.1);
-   //d0CountPerEvent = new TH1I("number of D0 candidates per event", "number of D0 candidates per event", 50, 0, 50);
+   
+   dEdxVsPt        = new TH2D("dEdx_vs_P", "dEdx_vs_P", 500, 0, 10, 500, 0, 15);
+   invBetaVsPt     = new TH2D("#Beta^{-1} Vs. P", "#Beta^{-1} Vs. P", 500, 0, 10, 500, 0, 4);
    
    //Histogram formatting
 
@@ -296,13 +277,7 @@ Int_t StPicoHHCorrMaker::Finish()
    mOutputFile->cd();
    // save user variables here
    
-   //StMixerEvent* event;
-   //StMixerTrack mixedTrack;
-   //StMixerTrack kaonPionTrack;
-   //int nTracks = 0;
-    
-    
-    
+   
     if(NON_IDENTIFIED_CORR){
         for(int i = 0; i < nVzBins; i++){
             for(int j = 0; j < nCentBins; j++){
@@ -339,47 +314,28 @@ Int_t StPicoHHCorrMaker::Finish()
    kaonDist->Write();
    pionDist->Write();
    likeSignBG->Write();
-   
    invMassMinusBG->Write();
-   //D0EtaDist->Write();
-   //D0PhiDist->Write();
-   //D0PeakMinusBG->Write();
    eventCounter->Write();
-   //kaonDCAfromD0->Write();
-   //pionDCAfromD0->Write();
-   //decayLengthQA->Write();
-   //pointingAngleQA->Write();
-   //daughterDCAQA->Write();
-   //D0ptDist->Write();   
    kaonPtDist->Write();
    pionPtDist->Write();
    kaonEtaDist->Write();
    pionEtaDist->Write();
    kaonPhiDist->Write();
    pionPhiDist->Write();
-   kaonDCAprimary->Write();
-   pionDCAprimary->Write();
-     
-   
+   DCAtoPrimaryVertex->Write();
+   DCAtoPrimaryVertexCut->Write();
+   //pionDCAprimary->Write();
    hadronPtDist->Write();
    hadronPhiDist->Write();
    hadronEtaDist->Write();
-  
-   //D0PeakPlusBG->Write();
-   //D0LikeSignBG->Write();
    trackCounter->Write();
    dEdxVsPt->Write();
    invBetaVsPt->Write();
+   pVtxX->Write();
+   pVtxY->Write();
+   pVtxZ->Write();
+   hadronChi2->Write();
    
-   //d0CountPerEvent->Write();
-   
-   //for(int i = 0; i < nVzBins; i++){
-   
-        //eventCategoryCounter[i]->Write();
-        
-   //}     
-   
-
    mOutputFile->Close();
   
 
@@ -437,6 +393,7 @@ Int_t StPicoHHCorrMaker::Make(){ //begin Make member function
     double eta            = 0;
     double dEdx           = 0;
     double beta           = 0;
+    float  trackDCA       = 0;
     //int    pairCharge     = 0;
     //int    PIDflag        = 0;
     bool   minBiasFlag    = false;
@@ -501,7 +458,10 @@ Int_t StPicoHHCorrMaker::Make(){ //begin Make member function
     
     if(VzBin == -1) { return kStOk; }    
       
-
+    pVtxX->Fill(picoDst->event()->primaryVertex().x());
+    pVtxY->Fill(picoDst->event()->primaryVertex().y());
+    pVtxZ->Fill(picoDst->event()->primaryVertex().z()); 
+      
 /****************************************************************************************************************/
 /****************************PRELIMINARY EVENT CUTS END********************************************************/  
 /***************************************************************************************************************/ 
@@ -515,7 +475,13 @@ Int_t StPicoHHCorrMaker::Make(){ //begin Make member function
                                                                  //gets pt, eta, phi, dEdx and beta from TOF
         trk = picoDst->track(i);
         
-        if(!(trk->pMom().mag() > 0)) { continue; }   //only use primary tracks in the calculations
+        trackDCA = ((trk->helix().origin())-pVtx).mag();
+        
+        DCAtoPrimaryVertex->Fill(trackDCA);
+        
+        if(trk->chi2() > trackChi2max) { continue; }
+        if(!checkDCAtoPV(trackDCA))  { continue; }   // track quality cut for DCA to PV
+        //if(!(trk->pMom().mag() > 0)) { continue; }   //only use primary tracks in the calculations
         
         trackMom = trk->gMom(pVtx, bField);
         
@@ -529,6 +495,8 @@ Int_t StPicoHHCorrMaker::Make(){ //begin Make member function
         if(trackMom.mag() > .70 && trackMom.mag() < .80 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) { continue; }
         eta  = trackMom.pseudoRapidity();
 		if(eta > 1 || eta < -1) { continue; }
+        
+        DCAtoPrimaryVertexCut->Fill(trackDCA);
 		
         if(trk->charge() > 0) { mPosiList.push_back(trackMom); }
         else if(trk->charge() < 0) { mNegaList.push_back(trackMom); } 
@@ -538,14 +506,15 @@ Int_t StPicoHHCorrMaker::Make(){ //begin Make member function
         
         phi  = TMath::ATan2(trackMom.y(),trackMom.x());  
         dEdx = trk->dEdx();
+        hadronChi2->Fill(trk->chi2());
             
         if(mHFCuts->hasTofPid(trk)){    
          
             beta = mHFCuts->getTofBeta(trk);                                                //Basic cut to ensure the tracks are in the TPC acceptance.
-            invBetaVsPt->Fill(pt, (1/beta));        
+            invBetaVsPt->Fill(trackMom.mag(), (1/beta));        
         }
         
-        dEdxVsPt->Fill(pt, dEdx);
+        dEdxVsPt->Fill(trackMom.mag(), dEdx);
         
         hadronPtDist->Fill(pt);                                                 //Fill pt dist. for all hadrons
         hadronPhiDist->Fill(phi);                                               //fill hists with phi and eta of hadrons for QA
@@ -607,11 +576,15 @@ if(!NON_IDENTIFIED_CORR) { return kStOk; }
                 
                 trk = picoDst->track(i);
                 trackMom = trk->gMom(pVtx, bField);
-               
+                trackDCA = ((trk->helix().origin())-pVtx).mag();
                 
                 if(mHFCuts->isGoodTrack(trk)){
                 
-                    if(!(trk->pMom().mag() > 0)) { continue; }
+                    //if(!(trk->pMom().mag() > 0)) { continue; }
+                 
+        
+                    if(trk->chi2() > trackChi2max) { continue; }
+                    if(!checkDCAtoPV(trackDCA))    { continue; }  
                     pt   = TMath::Sqrt((trackMom.x()*trackMom.x())+(trackMom.y()*trackMom.y()));
                     if(pt<hadronPtCutLow || pt>hadronPtCutHigh){continue;}  
         
@@ -619,7 +592,9 @@ if(!NON_IDENTIFIED_CORR) { return kStOk; }
                     if(trackMom.mag() > .70 && trackMom.mag() < .80 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) { continue; }
                     eta  = trackMom.pseudoRapidity();
 					if(eta > 1 || eta < -1) { continue; }                    
-					
+					if(trk->charge() == 0)  { continue; }
+       
+                    
                     eventBuffer[VzBin][centralityBin]->addTrackToEvent(eventBuffer[VzBin][centralityBin]->getBufferIndex()-1, trackMom, trk->charge(), 0);
                 
                 }
@@ -966,54 +941,12 @@ if(!NON_IDENTIFIED_CORR) { return kStOk; }
 
 //---------------------User Functions-------------------------------------
 
-bool StPicoHHCorrMaker::isGoodPair(StKaonPion const* const kp) const
-{
-  if(!kp) return false;
 
-  StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
-  StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
-
-  //  To be replaced by mHFCuts->isGoodSecondaryVertexPair(kp))
-  bool pairCuts = kp->m() > mHFCuts->cutSecondaryPairMassMin() && 
-    kp->m() < mHFCuts->cutSecondaryPairMassMax() &&
-    std::cos(kp->pointingAngle()) > mHFCuts->cutSecondaryPairCosThetaMin() &&
-    kp->decayLength()  > mHFCuts->cutSecondaryPairDecayLengthMin() && 
-    kp->decayLength()  < mHFCuts->cutSecondaryPairDecayLengthMax() &&
-    kp->dcaDaughters() < mHFCuts->cutSecondaryPairDcaDaughtersMax();
-
-  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
-	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
-	  pairCuts);
-
-}
-
-
-bool StPicoHHCorrMaker::cutCheck(StKaonPion const* const kp, double ptMin, double ptMax, double decayLengthMin, double decayLengthMax, 
-                                                            double dcaDaughters, double kaonPtCut, double pionPtCut, 
-                                                            double dcaKaon, double dcaPion, double dcaV0toPV) const
-{
-  if(!kp) return false;
-
-  StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
-  StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
-
-  
-      bool truthCuts = kp->pt() > ptMin && kp->pt() < ptMax &&
-                       kp->decayLength() > decayLengthMin && 
-                       kp->decayLength() < decayLengthMax &&
-                       kp->dcaDaughters() < dcaDaughters  &&
-                       kaon->gPt() > kaonPtCut && pion->gPt() > pionPtCut &&
-                       kp->kaonDca() > dcaKaon && kp->pionDca() > dcaPion &&
-                       kp->perpDcaToVtx() < dcaV0toPV;
-  
-      return truthCuts;
-
-}
 
 
 int StPicoHHCorrMaker::getCentralityBin(int nTracks){
 
-    /*if(nTracks >= 2   && nTracks < 14)  { return 0;  }
+    if(nTracks >= 2   && nTracks < 14)  { return 0;  }
     if(nTracks >= 14  && nTracks < 32)  { return 1;  }
     if(nTracks >= 34  && nTracks < 67)  { return 2;  }
     if(nTracks >= 67  && nTracks < 115) { return 3;  }
@@ -1023,9 +956,9 @@ int StPicoHHCorrMaker::getCentralityBin(int nTracks){
     if(nTracks >= 392 && nTracks < 537) { return 7;  }
     if(nTracks >= 537 && nTracks < 720) { return 8;  }
     if(nTracks >= 720 && nTracks < 829) { return 9;  }
-    if(nTracks >= 829)                  { return 10; }*/
+    if(nTracks >= 829)                  { return 10; }
     
-    if(nTracks >= 2   && nTracks < 16)  { return 0;  }
+    /*if(nTracks >= 2   && nTracks < 16)  { return 0;  }
     if(nTracks >= 16  && nTracks < 31)  { return 1;  }
     if(nTracks >= 31  && nTracks < 65)  { return 2;  }
     if(nTracks >= 65  && nTracks < 116) { return 3;  }
@@ -1035,7 +968,7 @@ int StPicoHHCorrMaker::getCentralityBin(int nTracks){
     if(nTracks >= 300 && nTracks < 370) { return 7;  }
     if(nTracks >= 370 && nTracks < 440) { return 8;  }
     if(nTracks >= 440 && nTracks < 520) { return 9;  }
-    if(nTracks >= 520)                  { return 10; }
+    if(nTracks >= 520)                  { return 10; }*/
     
 
     else return -1;
@@ -1060,7 +993,11 @@ int StPicoHHCorrMaker::getVzBin(double Vz){
 
 }    
 
+bool StPicoHHCorrMaker::checkDCAtoPV(float trackDCA){
 
+     return (trackDCA <= trackDCAmax);
+     
+}
 
 
 
