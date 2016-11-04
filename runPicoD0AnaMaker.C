@@ -79,7 +79,7 @@ void runPicoD0AnaMaker(TString d0list, TString outFileName, TString badRunListFi
 
    // add your cuts here.
    //
-   d0Cuts->setCutRequireHFT(true); //BE SURE TO CHANGE IN ANA MAKER IF YOU CHANGE HERE FOR CUT FILE! 
+   d0Cuts->setCutRequireHFT(false); //BE SURE TO CHANGE IN ANA MAKER IF YOU CHANGE HERE FOR CUT FILE! 
    d0Cuts->setCutVzMax(6.0);
    d0Cuts->setCutVzVpdVzMax(3.0);
    d0Cuts->setCutPionPtRange(0.15, 20.0);
