@@ -946,7 +946,7 @@ if(!NON_IDENTIFIED_CORR) { return kStOk; }
 
 int StPicoHHCorrMaker::getCentralityBin(int nTracks){
 
-    if(nTracks >= 2   && nTracks < 14)  { return 0;  }
+   /* if(nTracks >= 2   && nTracks < 14)  { return 0;  }
     if(nTracks >= 14  && nTracks < 32)  { return 1;  }
     if(nTracks >= 34  && nTracks < 67)  { return 2;  }
     if(nTracks >= 67  && nTracks < 115) { return 3;  }
@@ -956,19 +956,19 @@ int StPicoHHCorrMaker::getCentralityBin(int nTracks){
     if(nTracks >= 392 && nTracks < 537) { return 7;  }
     if(nTracks >= 537 && nTracks < 720) { return 8;  }
     if(nTracks >= 720 && nTracks < 829) { return 9;  }
-    if(nTracks >= 829)                  { return 10; }
+    if(nTracks >= 829)                  { return 10; }*/
     
-    /*if(nTracks >= 2   && nTracks < 16)  { return 0;  }
+    if(nTracks >= 2   && nTracks < 16)  { return 0;  }
     if(nTracks >= 16  && nTracks < 31)  { return 1;  }
     if(nTracks >= 31  && nTracks < 65)  { return 2;  }
     if(nTracks >= 65  && nTracks < 116) { return 3;  }
     if(nTracks >= 116 && nTracks < 187) { return 4;  }
-    if(nTracks >= 187 && nTracks < 250) { return 5;  }
-    if(nTracks >= 250 && nTracks < 300) { return 6;  }
+    if(nTracks >= 187 && nTracks < 237) { return 5;  }
+    if(nTracks >= 237 && nTracks < 300) { return 6;  }
     if(nTracks >= 300 && nTracks < 370) { return 7;  }
     if(nTracks >= 370 && nTracks < 440) { return 8;  }
     if(nTracks >= 440 && nTracks < 520) { return 9;  }
-    if(nTracks >= 520)                  { return 10; }*/
+    if(nTracks >= 520)                  { return 10; }
     
 
     else return -1;

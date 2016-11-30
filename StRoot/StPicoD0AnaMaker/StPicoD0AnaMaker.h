@@ -66,8 +66,8 @@ class StPicoD0AnaMaker : public StMaker
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
     
-    StMixedEventBuffer* eventBufferPicoEvent[10][15];      //To use for the actual PicoEvent
-    StMixedEventBuffer* eventBufferD0Candidate[10][15];      //To use for D0 candidate
+    StMixedEventBuffer* eventBufferPicoEvent[10][16];      //To use for the actual PicoEvent
+    StMixedEventBuffer* eventBufferD0Candidate[10][16];      //To use for D0 candidate
     //StKaonPion*         d0CandidateBuffer[10][11];  //stores the candidate D0s use for eventual mixing
     
     TString mOutFileName;
@@ -139,10 +139,10 @@ class StPicoD0AnaMaker : public StMaker
                                            // vpdmb-5-p-nobsmd-hlt // vpdmb-5-p-nobsmd-hlt // vpdmb-5-p-nobsmd // vpdmb-5-p-nobsmd // vpdmb-5-p-nobsmd 
     unsigned int trigger[5];    
     
-    TH2D* sibCorrBin[4][10][15];
-    TH2D* mixCorrBin[4][10][15];
-    TH2D* sibCorrBinPt[4][6][10][15];
-    TH2D* mixCorrBinPt[4][6][10][15];
+    TH2D* sibCorrBin[4][10][16];
+    TH2D* mixCorrBin[4][10][16];
+    TH2D* sibCorrBinPt[4][6][10][16];
+    TH2D* mixCorrBinPt[4][6][10][16];
     TH1D* etaDistVz[10];
     TH1D* phiDistVz[10];
     TH2D* etaPhiDistVz[10];

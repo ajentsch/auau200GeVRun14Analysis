@@ -232,7 +232,7 @@ Int_t StPicoD0AnaMaker::Init()
     TString str3;
     
     TString binLabelVz[10]   = {"0", "1", "2", "3", "4", "5", "6", "7", "8","9"};
-    TString binLabelCent[15] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"};
+    TString binLabelCent[16] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"};
     TString binLabelPt[6]    = {"0", "1", "2", "3", "4", "5"};
    
    // --------------------Begin User Variables-----------------------------------
@@ -624,7 +624,8 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
         }
         
         dEdxVsPt->Fill(trackMom.mag(), dEdx);
-        hadronPtDist->Fill(pt);                                                
+        hadronPtDist->Fill(pt); 
+        hadronPhiDist->Fill(phi);        
         hadronEtaDist->Fill(eta);
         etaDistVz[VzBin]->Fill(eta);
         phiDistVz[VzBin]->Fill(phi);
@@ -776,8 +777,8 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                         eta  = trackMom.pseudoRapidity();
                         if(eta > 1 || eta < -1) { continue; }
                         
-                        if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaKaon()) < 2.0)){ PIDflag = 1; }
-                        else if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaPion()) < 3.0)) { PIDflag = 2; }
+                        if((fabs(trk->nSigmaKaon()) < 2.0)){ PIDflag = 1; }
+                        else if((fabs(trk->nSigmaPion()) < 3.0)) { PIDflag = 2; }
                         else PIDflag = 0;
             
                         eventBufferPicoEvent[VzBin][centralityBin]->addTrackToEvent(eventBufferPicoEvent[VzBin][centralityBin]->getBufferIndex()-1, trackMom, trk->charge(), PIDflag);   //0 -- any hadron, 1 -- kaon, 2 -- pion
@@ -921,7 +922,7 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                 
                 realTracks = 0;
                 
-                for(unsigned int i = 0; i < picoDst->numberOfTracks(); ++i){ // begin picoDST loop for d0-hadron correlations
+                for(unsigned int i = 0; i < mAssociatedHadronList.size(); ++i){ // begin picoDST loop for d0-hadron correlations
            
                     if(i == kp->kaonIdx() || i == kp->pionIdx()) { continue; }    // Need to check this -- should avoid doing correlations with a D0 candidate daughter
                     
@@ -929,6 +930,9 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                     trackMom = mAssociatedHadronList[i];
         
                     realTracks++;
+                    
+                    phi  = TMath::ATan2(trackMom.y(),trackMom.x());
+                    eta = trackMom.pseudoRapidity();
                     
                     delPhi = kp->phi()-phi;
                     
@@ -1167,21 +1171,22 @@ int StPicoD0AnaMaker::getCentralityBin(int nTracks){
     if(nTracks >= 550 && nTracks < 620) { return 13; }
     if(nTracks >= 620)                  { return 14; }*/
     
-    if(nTracks >= 2   && nTracks < 14)  { return 0;  }
-    if(nTracks >= 14  && nTracks < 32)  { return 1;  }
-    if(nTracks >= 34  && nTracks < 67)  { return 2;  }
-    if(nTracks >= 67  && nTracks < 115) { return 3;  }
-    if(nTracks >= 115 && nTracks < 183) { return 4;  }
-    if(nTracks >= 183 && nTracks < 243) { return 5;  }
-    if(nTracks >= 243 && nTracks < 300) { return 6;  }
-    if(nTracks >= 300 && nTracks < 370) { return 7;  }
-    if(nTracks >= 370 && nTracks < 450) { return 8;  }
-    if(nTracks >= 450 && nTracks < 520) { return 9;  }
-    if(nTracks >= 520 && nTracks < 580) { return 10;  }
-    if(nTracks >= 580 && nTracks < 650) { return 11;  }
-    if(nTracks >= 650 && nTracks < 710) { return 12;  }
-    if(nTracks >= 710 && nTracks < 770) { return 13;  }
-    if(nTracks >= 770)                  { return 14; }
+    if(nTracks >= 1   && nTracks < 42)  { return 0;  }
+    if(nTracks >= 42  && nTracks < 86)  { return 1;  }
+    if(nTracks >= 86  && nTracks < 131)  { return 2;  }
+    if(nTracks >= 131  && nTracks < 183) { return 3;  }
+    if(nTracks >= 183 && nTracks < 235) { return 4;  }
+    if(nTracks >= 235 && nTracks < 288) { return 5;  }
+    if(nTracks >= 288 && nTracks < 340) { return 6;  }
+    if(nTracks >= 340 && nTracks < 392) { return 7;  }
+    if(nTracks >= 392 && nTracks < 440) { return 8;  }
+    if(nTracks >= 440 && nTracks < 491) { return 9;  }
+    if(nTracks >= 491 && nTracks < 542) { return 10;  }
+    if(nTracks >= 542 && nTracks < 593) { return 11;  }
+    if(nTracks >= 593 && nTracks < 644) { return 12;  }
+    if(nTracks >= 644 && nTracks < 695) { return 13;  }
+    if(nTracks >= 695 && nTracks < 746) { return 14;  }
+    if(nTracks >= 746)                  { return 15; }
 
     else return -1;
 
