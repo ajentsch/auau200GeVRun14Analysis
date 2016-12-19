@@ -177,7 +177,10 @@ class StPicoD0AnaMaker : public StMaker
     TH1D* pVtxZ;
     TH1D* DCAtoPrimaryVertex;
     TH1D* DCAtoPrimaryVertexCut;
-    
+    TH2D* phiD0vsPhiH[10][16];     
+    TH2D* etaD0vsEtaH[10][16];
+    TH2D* phiD0vsEtaD0[10][16];
+    TH2D* phiHvsEtaH[10][16];
 
     ClassDef(StPicoD0AnaMaker, 0)
 };

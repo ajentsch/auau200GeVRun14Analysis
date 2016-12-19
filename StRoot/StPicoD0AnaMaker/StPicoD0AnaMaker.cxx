@@ -117,8 +117,8 @@ Int_t StPicoD0AnaMaker::Init()
    USE_CENT_BINS       = true;
    USE_VZ_BINS         = true;
    USE_PT_BINS         = true;
-   D0_HADRON_CORR      = true;
-   EVENT_MIXING        = true;
+   D0_HADRON_CORR      = false;
+   EVENT_MIXING        = false;
    //----------------------------------------------------------//
    
    //---------------------Important constants-----------------//
@@ -126,7 +126,7 @@ Int_t StPicoD0AnaMaker::Init()
    NUM_PHI_BINS  = 12;
    NUM_ETA_BINS  = 9;
    NUM_VZ_BINS   = 10;
-   NUM_CENT_BINS = 15; 
+   NUM_CENT_BINS = 16; 
    NUM_PT_BINS   = 3;
    
    
@@ -224,12 +224,19 @@ Int_t StPicoD0AnaMaker::Init()
     TString phiLabel          = "Inclusive Hadron Phi";
     TString etaPhiLabel       = "Inclusive 2D Hadron Eta/Phi";
     
+    TString phiD0vsPhiHLabel  = "phiD0_vs_phiH";
+    TString etaD0vsEtaHLabel  = "etaD0_vs_etaH";
+    TString phiD0vsEtaD0Label = "phiD0_vs_etaD0";
+    TString phiHvsEtaHLabel   = "phiH_vs_etaH";
+    
+    
     TString invMassD0PtBin    = "D0_US_invMass_Pt_Bin_";
     TString invMassLSPtBin    = "LS_invMass_Pt_Bin_";
     
     TString str1;
     TString str2;
     TString str3;
+    TString str4;
     
     TString binLabelVz[10]   = {"0", "1", "2", "3", "4", "5", "6", "7", "8","9"};
     TString binLabelCent[16] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"};
@@ -262,8 +269,8 @@ Int_t StPicoD0AnaMaker::Init()
                     str1 = SibCorrLabels[band] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                     str2 = MixCorrLabels[band] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                 
-                    sibCorrBin[band][i][j]             = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-                    mixCorrBin[band][i][j]             = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+                    sibCorrBin[band][i][j]             = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
+                    mixCorrBin[band][i][j]             = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
                
                 }
             }
@@ -280,8 +287,8 @@ Int_t StPicoD0AnaMaker::Init()
                         str1 = SibCorrLabels[band] + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                         str2 = MixCorrLabels[band] + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                     
-                        sibCorrBinPt[band][k][i][j] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-                        mixCorrBinPt[band][k][i][j] = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+                        sibCorrBinPt[band][k][i][j] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
+                        mixCorrBinPt[band][k][i][j] = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
                     
                     }
                 }            
@@ -289,7 +296,7 @@ Int_t StPicoD0AnaMaker::Init()
         }    
     }//end D0-Hadron Correlation Histograms -- USE PT BINS HERE    
    
-    if(USE_VZ_BINS){
+    /*if(USE_VZ_BINS){
         for(int i = 0; i < nVzBins; i++){ 
             
             str1 = phiLabel + VzBinLabel + binLabelVz[i];
@@ -301,7 +308,7 @@ Int_t StPicoD0AnaMaker::Init()
             etaPhiDistVz[i]->GetXaxis()->SetTitle("#eta");
             etaPhiDistVz[i]->GetYaxis()->SetTitle("#phi");
         }    
-    }
+    }*/
  
    
    //QA Histograms
@@ -323,7 +330,7 @@ Int_t StPicoD0AnaMaker::Init()
    pVtxZ           = new TH1D("Z position of pVtx", "Z position of pVtx", 500, -7, 7);
    dEdxVsPt        = new TH2D("dEdx_vs_P", "dEdx_vs_P", 250, 0, 10, 250, 0, 10);
    invBetaVsPt     = new TH2D("#Beta^{-1} Vs. P", "#Beta^{-1} Vs. P", 250, 0, 10, 250, 0, 4);
-   vZandCentBinPerEvent = new TH2I("event counts per Vz/Cent bin", "event counts per Vz/Cent bin", 15, 0, 15, 10, 0, 10);
+   vZandCentBinPerEvent = new TH2I("event counts per Vz/Cent bin", "event counts per Vz/Cent bin", 16, 0, 16, 10, 0, 10);
    vZandCentBinPerEvent->GetXaxis()->SetTitle("Centrality Bin");
    vZandCentBinPerEvent->GetYaxis()->SetTitle("Vz Bin");
    //QA for mass-cut D0  
@@ -331,7 +338,25 @@ Int_t StPicoD0AnaMaker::Init()
    D0EtaDist       = new TH1D("D0 Eta Dist", "D0 #eta Dist. (mass cut)", 250, -1, 1);
    D0PhiDist       = new TH1D("D0 Phi Dist", "D0 #phi Dist. (mass cut)", 250, -2*TMath::Pi(), 2*TMath::Pi());
    d0CountPerEvent = new TH1I("number of D0 candidates per event", "number of D0 candidates per event", 50, 0, 50);
-   histOfCuts      = new TH1D("HistOfCuts", "HistOfCuts", 30, 1, 30);  
+   histOfCuts      = new TH1D("HistOfCuts", "HistOfCuts", 30, 1, 30); 
+
+   //single particle distributions for errors
+   
+   for(int i = 0; i < nVzBins; i++){
+        for(int j = 0; j < nCentBins; j++){
+        
+            str1 = phiD0vsPhiHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+            str2 = etaD0vsEtaHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+            str3 = phiD0vsEtaD0Label + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+            str4 = phiHvsEtaHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+        
+            phiD0vsPhiH[i][j]     = new TH2D(str1, str1, 24, -TMath::Pi(), TMath::Pi(), 24, -TMath::Pi(), TMath::Pi());  //d0 on y axis, h on x axis     
+            etaD0vsEtaH[i][j]     = new TH2D(str2, str2, 9, -1, 1, 9, -1, 1);  //d0 on y axis, h on x axis
+            phiD0vsEtaD0[i][j]    = new TH2D(str3, str3, 9, -1, 1, 24, -TMath::Pi(), TMath::Pi());
+            phiHvsEtaH[i][j]      = new TH2D(str4, str4, 9, -1, 1, 24, -TMath::Pi(), TMath::Pi());
+            
+        }
+   }        
    
    
    //Histogram formatting
@@ -418,14 +443,7 @@ Int_t StPicoD0AnaMaker::Finish()
         }
     }
     
-    if(USE_VZ_BINS){
-        for(int i = 0; i < nVzBins; i++){
-           
-                etaDistVz[i]->Write();
-                phiDistVz[i]->Write();
-                etaPhiDistVz[i]->Write();
-        }
-    }      
+    
 
 
    if(USE_PT_BINS){
@@ -436,6 +454,15 @@ Int_t StPicoD0AnaMaker::Finish()
         }
    }        
   
+   for(int i = 0; i < nVzBins; i++){
+        for(int j = 0; j < nCentBins ; j++){
+  
+            phiD0vsPhiH[i][j]->Write();  
+            etaD0vsEtaH[i][j]->Write();
+            phiD0vsEtaD0[i][j]->Write();
+            phiHvsEtaH[i][j]->Write();
+        }
+   }        
    
    invMass->Write();
    likeSignBG->Write();
@@ -610,26 +637,21 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
 		
         realTracks++;                        //after a track passes all cuts, it is considered a "real track"
         
-        mAssociatedHadronList.push_back(trackMom); //store the associated tracks to a list for quicker pairing later
-        
-        phi  = TMath::ATan2(trackMom.y(),trackMom.x());  
         dEdx = trk->dEdx();
-        hadronChi2->Fill(trk->chi2());   
-        DCAtoPrimaryVertexCut->Fill(trackDCA);        
-            
+        
+        dEdxVsPt->Fill(trackMom.mag(), dEdx);
+        DCAtoPrimaryVertexCut->Fill(trackDCA);
+        hadronChi2->Fill(trk->chi2());
+        
         if(mHFCuts->hasTofPid(trk)){    
          
             beta = mHFCuts->getTofBeta(trk);                                                
             invBetaVsPt->Fill(trackMom.mag(), (1/beta));        
         }
         
-        dEdxVsPt->Fill(trackMom.mag(), dEdx);
         hadronPtDist->Fill(pt); 
         hadronPhiDist->Fill(phi);        
         hadronEtaDist->Fill(eta);
-        etaDistVz[VzBin]->Fill(eta);
-        phiDistVz[VzBin]->Fill(phi);
-        etaPhiDistVz[VzBin]->Fill(eta,phi);
         
         if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaKaon()) < 2.0)){       //ONLY check nSigma for TPC track -- used to be mHFCuts->isTPCKaon(trk), but this include pt cut
                                                                                   //need to fix this. Need to figure out how to access the nSigma from the cuts
@@ -645,27 +667,34 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
               continue;
         }
         
+        mAssociatedHadronList.push_back(trackMom); //store the associated tracks to a list for quicker pairing later
+        
+        
     } //End loop to fill basic track information and make nega/posi list   
-       
-    usedTracks->Fill(realTracks);   
     
-    centralityBin = getCentralityBin(realTracks);  //get centrality bin -- These mult bins are still rough -- pending open questions
-   
-    if(USE_VZ_BINS){
-        Vz = picoDst->event()->primaryVertex().z();
-        VzBin = getVzBin(Vz);                  //get Vz bin
-    }
-   
-    else VzBin = 0;
+    //Fill track distributions and get centrality bins////////////////////
     
-    if(centralityBin == -1 || VzBin == -1) { return kStOk; }
+        usedTracks->Fill(realTracks);   
     
-    pVtxX->Fill(picoDst->event()->primaryVertex().x());
-    pVtxY->Fill(picoDst->event()->primaryVertex().y());
-    pVtxZ->Fill(picoDst->event()->primaryVertex().z()); 
+        centralityBin = getCentralityBin(realTracks);  //get centrality bin -- These mult bins are still rough -- pending open questions
    
-    vZandCentBinPerEvent->Fill(centralityBin+1, VzBin+1);   
+        if(USE_VZ_BINS){
+            Vz = picoDst->event()->primaryVertex().z();
+            VzBin = getVzBin(Vz);                  //get Vz bin
+        }
    
+        else VzBin = 0;
+    
+        if(centralityBin == -1 || VzBin == -1) { return kStOk; }
+    
+        pVtxX->Fill(picoDst->event()->primaryVertex().x());
+        pVtxY->Fill(picoDst->event()->primaryVertex().y());
+        pVtxZ->Fill(picoDst->event()->primaryVertex().z()); 
+   
+        vZandCentBinPerEvent->Fill(centralityBin, VzBin); 
+    
+    ///////////////////////////////////////////////////////////////////
+    
     if(DEBUG){ 
         
                 cout << endl << endl;
@@ -892,7 +921,22 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                 D0ptDist->Fill(kp->pt()); 
                 D0EtaDist->Fill(kp->eta());
                 D0PhiDist->Fill(kp->phi());
+                
+                for(unsigned int i = 0; i < mAssociatedHadronList.size(); i++){ // begin loop for single part distributions on D0/h+/-
+           
+                    if(i == kp->kaonIdx() || i == kp->pionIdx()) { continue; }   
                     
+                    trackMom = mAssociatedHadronList[i];
+        
+                    phi  = TMath::ATan2(trackMom.y(),trackMom.x());
+                    eta = trackMom.pseudoRapidity();
+                    
+                    phiD0vsPhiH[VzBin][centralityBin]->Fill(phi, kp->phi());
+                    etaD0vsEtaH[VzBin][centralityBin]->Fill(eta, kp->eta());     
+                    phiD0vsEtaD0[VzBin][centralityBin]->Fill(kp->eta(), kp->phi());    
+                    
+                }
+                
                 bandBin = 1;
             }
                 
@@ -918,14 +962,13 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
             
         
             
-            if(bandBin > -1 && D0_HADRON_CORR){// begin sibling pair formation with whatever "band" we are in, if we have a candidate in the band -- NEED TO MAKE A TRACK LIST TO SPEED THIS UP!!!
+            if(bandBin > -1){// begin sibling pair formation with whatever "band" we are in, if we have a candidate in the band -- NEED TO MAKE A TRACK LIST TO SPEED THIS UP!!!
                 
                 realTracks = 0;
                 
-                for(unsigned int i = 0; i < mAssociatedHadronList.size(); ++i){ // begin picoDST loop for d0-hadron correlations
+                for(unsigned int i = 0; i < mAssociatedHadronList.size(); i++){ // begin picoDST loop for d0-hadron correlations
            
                     if(i == kp->kaonIdx() || i == kp->pionIdx()) { continue; }    // Need to check this -- should avoid doing correlations with a D0 candidate daughter
-                    
                     
                     trackMom = mAssociatedHadronList[i];
         
@@ -934,29 +977,34 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                     phi  = TMath::ATan2(trackMom.y(),trackMom.x());
                     eta = trackMom.pseudoRapidity();
                     
+                    phiHvsEtaH[VzBin][centralityBin]->Fill(eta,phi);
+                    
                     delPhi = kp->phi()-phi;
                     
                     if(delPhi < -TMath::Pi()) { delPhi = delPhi + 2*TMath::Pi(); }     //shift [-2Pi, 2Pi] -> [-Pi,Pi]
                     else if(delPhi > TMath::Pi()) { delPhi = delPhi - 2*TMath::Pi(); }
                     
                     delPhi = TMath::Abs(delPhi);//Gets absolute value of angle 
-                    if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                    if(delPhi >= (3*TMath::PiOver2())+(TMath::Pi()/12.0)){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
                     
                     delPhiCp = -delPhi;//Gets negative copy of absolute value of angle.....
-                    if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                    if(delPhiCp < -TMath::PiOver2()+(TMath::Pi()/12.0)){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
                 
                     delEta = TMath::Abs(kp->eta()-eta);
                    
-                    sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi);
-                    sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp);
-                    sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
-                    sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp);
-                    if(ptBin > -1) { 
+                    if(D0_HADRON_CORR){
                     
-                        sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi);
-                        sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp); 
-                        sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
-                        sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp); 
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp);
+                            if(ptBin > -1) { 
+                    
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi);
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp); 
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp); 
+                            }
                     }
                 
                 }// end picoDST loop for d0-hadron correlations
@@ -999,8 +1047,6 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
             // D0Mom = 0;
             double D0Pt = 0;
         
-            
-            
             if(DEBUG_MIX_BUFFER) { cout << "Code gets here" << endl; }
         
             for(int k = 0; k <  eventBufferD0Candidate[VzBin][centralityBin]->getBufferSize(); k++){ // begin d0 event buffer loop
@@ -1046,10 +1092,10 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                                 else if(delPhi >= TMath::Pi()) { delPhi = delPhi - 2*TMath::Pi(); }
                  
                                 delPhi = TMath::Abs(delPhi);//Gets absolute value of angle 
-                                if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                                if(delPhi >= (3*TMath::PiOver2())+(TMath::Pi()/12.0)){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
                     
                                 delPhiCp = -delPhi;//Gets negative copy of absolute value of angle.....
-                                if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                                if(delPhiCp < -TMath::PiOver2()+(TMath::Pi()/12.0)){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
                 
                 
                                 delEta = TMath::Abs(kaonPionTrack1.gMom().pseudoRapidity()-eta);
