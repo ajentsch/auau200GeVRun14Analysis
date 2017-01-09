@@ -55,6 +55,7 @@ class StPicoD0AnaMaker : public StMaker
     int  getCentralityBin(int nTracks);
     int  getVzBin(double Vz);
     int  getPtBin(double pt);
+    int  getCentralityClass(double nTracks);
     bool checkDCAtoPV(float trackDCA);
 
     int NUM_PHI_BINS;
@@ -96,6 +97,7 @@ class StPicoD0AnaMaker : public StMaker
     int VzBin;
     int ptBin;
     int bandBin;
+    int centralityClass;
     
     int nVzBins;
     int nCentBins;
@@ -133,6 +135,7 @@ class StPicoD0AnaMaker : public StMaker
     bool DEBUG_MIX_BUFFER;
     bool USE_CENT_BINS;
     bool USE_VZ_BINS;
+    bool SINGLES_DISTS;
     bool D0_HADRON_CORR;
     bool EVENT_MIXING;
     bool USE_PT_BINS;
@@ -146,10 +149,16 @@ class StPicoD0AnaMaker : public StMaker
     TH1D* etaDistVz[10];
     TH1D* phiDistVz[10];
     TH2D* etaPhiDistVz[10];
-    TH1D* D0InvMassPtBin[6];
-    TH1D* LSInvMassPtBin[6];
+    TH1D* D0InvMassPtBin[6][3];
+    TH1D* LSInvMassPtBin[6][3];
     TH1D* ptDist;
     TH1D* invMass;
+    TH1D* invMassPer;     
+    TH1D* invMassMidCent;
+    TH1D* invMassCent;
+    TH1D* likeSignBGPer;
+    TH1D* likeSignBGMidCent;
+    TH1D* likeSignBGCent;
     TH1D* likeSignBG;
     TH1D* D0EtaDist;
     TH1D* D0PhiDist;
