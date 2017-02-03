@@ -50,15 +50,7 @@ using namespace std;
 //void formatCorrHist(TH2D* hist);
 //void formatCorrHist(TH2D* hist, TString title);
 
-Bool_t reject;
-Double_t fline(Double_t *x, Double_t *par)
-{
-    if ((reject && (x[0] > 1.81 && x[0] < 1.91)) || (reject && (x[0] > 1.6 && x[0] < 1.7))){
-      TF1::RejectPoint();
-      return 0;
-   }
-   return par[0] + par[1]*x[0];
-}
+
 
 int corrHistogramMaker(){
   
@@ -122,10 +114,6 @@ int corrHistogramMaker(){
                                  "delRho_over_rhoRefCorr/", "FullySubtractedCorr/", "USMinusLS/", 
                                  "SideBandSubtraction/", "Centralities/"};
                                 
-    TString invariantMassOutputFolders[4] = {"PtBin0/", "PtBin1/", "PtBin2/", "PtIntegrated/"};
-    TString invariantMassHistogramsFolder = "invariantMassHistograms/";
-        
-                                
     TString VzSubFolders[11] = {"VzBin0/", "VzBin1/", "VzBin2/", "VzBin3/", "VzBin4/", "VzBin5/", "VzBin6/", "VzBin7/", "VzBin8/", "VzBin9/", "VzIntegrated/"};
     TString PtSubFolders[4] = {"PtBin0/", "PtBin1/", "PtBin2/", "PtIntegrated/"};
     TString bandFolders[5]   = {"LeftSideBand/","UnlikeSign/", "RightSideBand/", "LikeSign/", "SideBandAverage/"};    
@@ -136,35 +124,22 @@ int corrHistogramMaker(){
     
     
    
-    TH1D*   oneDUSHistos[4][4];     
+    TH1D*   oneDUSHistos[4];     
     TString oneDUSStrings[4] = {"D0_US_invMass_Pt_Bin_0", "D0_US_invMass_Pt_Bin_1", "D0_US_invMass_Pt_Bin_2", "unlikeSign"};
                                               
-    TH1D*   oneDLSHistos[4][4];     
+    TH1D*   oneDLSHistos[4];     
     TString oneDLSStrings[4] = {"LS_invMass_Pt_Bin_0", "LS_invMass_Pt_Bin_1", "LS_invMass_Pt_Bin_2", "LikeSignBG"};
                                               
-    TH1D*   oneDScaledLSHistos[4][4];     
+    TH1D*   oneDScaledLSHistos[4];     
     TString oneDScaledLSStrings[4] = {"ScaledLS_PtBin_0", "ScaledLS_PtBin_1", "ScaledLS_PtBin_2", "ScaledLS"};
                                                   
-    TH1D*   oneDSubtractedInvMassHistos[4][4];                                              
+    TH1D*   oneDSubtractedInvMassHistos[4];                                              
     TString oneDSubtractedInvMassStrings[4] = {"D0_Minus_Scaled_LS_BG_PtBin_0", "D0_Minus_Scaled_LS_BG_PtBin_1", "D0_Minus_Scaled_LS_BG_PtBin_2", "D0_Minus_Scaled_LS_BG"}; 
     
-    TH1D*   oneDSubtractedInvMassHistosFunction[4][4];                                              
+    TH1D*   oneDSubtractedInvMassHistosFunction[4];                                              
     TString oneDSubtractedInvMassStringsFunction[4] = {"US_Minus_Expo_Fit_BG_PtBin_0", "US_Minus_Expo_Fit_BG_PtBin_1", "US_Minus_Expo_Fit_BG_PtBin_2", "US_Minus_Expo_Fit_BG"}; 
                                                                                                                           
-    TString binLabelCentralityClass[3] = {"_Peripheral", "_MidCentral", "_Central"};
-    
-    //{{"_Peripheral", "_MidCentral", "Central", ""},{"Per", "MidCent", "Cent", ""}}
-    
-    //binLabelCentralityClass[0][0] = "_Peripheral"; 
-    //binLabelCentralityClass[0][1] = "_MidCentral";
-    //binLabelCentralityClass[0][2] = "_Central";
-    //binLabelCentralityClass[0][3] = "Central";
-    //binLabelCentralityClass[1][0] = "Per";
-    //binLabelCentralityClass[1][1] = "MidCent";
-    //binLabelCentralityClass[1][2] = "Cent";
-    //binLabelCentralityClass[1][3] = "";
-    
-    //TString binLabelCentralityClassWrong[4] = {"Per", "MidCent", "Cent", ""};
+   
     
     double integralSideBandCounts[2];
     double integralCounts[2];
@@ -278,13 +253,11 @@ int corrHistogramMaker(){
     double scaleFactorLS = 0;
     
     
-    double LSScaleFactor[4][4] = {{1.0, 1.0, 1.0, 1.0}, {1.0,1.0,1.0,1.0}};
+    double LSScaleFactor[4] = {1.0, 1.0, 1.0, 1.0};
     double ScalingRatio[3][16];
     
-    double BOverSPlusBLS[4][4];
-    double BOverSPlusBFit[4][4];
-    double SPlusBOverSLS[4][4];
-    double SPlusBOverSFit[4][4];
+    double BOverSPlusB[4];
+    double BOverSPlusBFit[4];
     
     double totalPairsSibling = 0;
     double integralError[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
@@ -331,29 +304,16 @@ int corrHistogramMaker(){
     TString tmp;
         
     Double_t par[5];
-    Double_t parBG[2];
         
     TF1 * g1 = new TF1("m1", "gaus", 1.8, 1.9);
-    TF1 * e1 = new TF1("m2", "expo", 1.6, 1.78);
+    TF1 * e1 = new TF1("m2", "expo", 1.6, 1.75);
     
-    //TF1 * eL = new TF1("m3", "expo", 1.69, 1.81);
-    //TF1 * eR = new TF1("m4", "expo", 1.92, 2.0);
-    
-    TF1 * BGFunc = new TF1("BGfunc", "expo", 1.6, 2.1);
+    TF1 * e2 = new TF1("m2", "expo", 1.6, 2.1);
     
     TF1 * fun = new TF1("fun","gaus(0)+expo(3)",1.6,2.1);
-    
-    TF1 * finalGaussian = new TF1("final Guassian", "gaus", 1.82, 1.9);
-    
-    double par0;
-    double par1;
-    double par2;
-    double par3;
 
     TAxis* xAxisUS;
     TAxis* xAxisLS;
-    
-    int LabelVersion = 0;
     
 //------------------------------------------------------------------
 //Code section to write information about this dataset to file
@@ -430,158 +390,157 @@ int corrHistogramMaker(){
 //BEGIN INVARIANT MASS HISTOGRAM INFORMATION   
 //---------------------------------------------
     
-    ofstream invariantMassInfo;
-    TString invariantMassInfoName = "Signal_and_background_information.txt";
-    TString invariantMassInfoFile = path + invariantMassInfoName;
-    invariantMassInfo.open (invariantMassInfoFile);
-    
-    
-    for(int k = 0; k < NUM_PT_BINS; k++){  //Initialize the histograms 
-        for(int i = 0; i < 3; i++){
-        
-            //if(k == 3) { LabelVersion = 1; }
+    for(int i = 0; i < NUM_PT_BINS; i++){  //Initialize the histograms 
        
-            tmp = oneDUSStrings[k] + binLabelCentralityClass[i];
-            oneDUSHistos[k][i] = (TH1D*)file->Get(tmp);     //US spectrum
-            tmp = oneDLSStrings[k] + binLabelCentralityClass[i];
-            oneDLSHistos[k][i] = (TH1D*)file->Get(tmp);     //LS spectrum
-        
-            oneDScaledLSHistos[k][i] = (TH1D*)oneDLSHistos[k][i]->Clone();  //clone of LS spectrum to be scaled   
-            tmp = oneDScaledLSStrings[k] + binLabelCentralityClass[i];
-            oneDScaledLSHistos[k][i]->SetTitle(oneDScaledLSStrings[k]);        
-            tmp = oneDSubtractedInvMassStrings[k] + binLabelCentralityClass[i];
-            oneDSubtractedInvMassHistos[k][i] = new TH1D(tmp, tmp, 50, 1.6, 2.1); //final spectrum -- US minus LS (scaled)
+        //cout << "index: " << i << endl;
        
-            oneDUSHistos[k][i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
-            oneDUSHistos[k][i]->GetYaxis()->SetTitle("counts");
-            oneDUSHistos[k][i]->GetYaxis()->SetTitleOffset(1.2);
-            oneDLSHistos[k][i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
-            oneDLSHistos[k][i]->GetYaxis()->SetTitle("counts");
-            oneDLSHistos[k][i]->GetYaxis()->SetTitleOffset(1.2);
-            oneDScaledLSHistos[k][i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
-            oneDScaledLSHistos[k][i]->GetYaxis()->SetTitle("counts");
-            oneDScaledLSHistos[k][i]->GetYaxis()->SetTitleOffset(1.2);
-            oneDSubtractedInvMassHistos[k][i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
-            oneDSubtractedInvMassHistos[k][i]->GetYaxis()->SetTitle("counts");
-            oneDSubtractedInvMassHistos[k][i]->GetYaxis()->SetTitleOffset(1.2);
+        //cout << "histogram names: " << endl;
+        //cout << oneDUSStrings[i] << endl;
+        //cout << oneDLSStrings[i] << endl;
+       
+        oneDUSHistos[i] = (TH1D*)file->Get(oneDUSStrings[i]);     //US spectrum
+        oneDLSHistos[i] = (TH1D*)file->Get(oneDLSStrings[i]);     //LS spectrum
+        //cout << "spot4" << endl;
+        oneDLSHistos[i]->Draw();
+        //cout << "spot4" << endl;
+        oneDScaledLSHistos[i] = (TH1D*)oneDLSHistos[i]->Clone();  //clone of LS spectrum to be scaled   
+        //cout << "spot5" << endl;
+        oneDScaledLSHistos[i]->SetTitle(oneDScaledLSStrings[i]);        
+       
+        oneDSubtractedInvMassHistos[i] = new TH1D(oneDSubtractedInvMassStrings[i], oneDSubtractedInvMassStrings[i], 50, 1.6, 2.1); //final spectrum -- US minus LS (scaled)
+        //oneDSubtractedInvMassHistosFunction[i] = new TH1D(oneDSubtractedInvMassStringsFunction[i], oneDSubtractedInvMassStringsFunction[i], 50, 1.6, 2.1);
+        oneDSubtractedInvMassHistosFunction[i] = (TH1D*)oneDUSHistos[i]->Clone();
+        oneDSubtractedInvMassHistosFunction[i]->SetTitle(oneDSubtractedInvMassStringsFunction[i]);
+        //cout << "spot5" << endl;
         
-            xAxisUS = oneDUSHistos[k][i]->GetXaxis();
-            xAxisLS = oneDLSHistos[k][i]->GetXaxis();
+        oneDUSHistos[i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
+        oneDUSHistos[i]->GetYaxis()->SetTitle("counts");
+        oneDUSHistos[i]->GetYaxis()->SetTitleOffset(1.2);
+        oneDLSHistos[i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
+        oneDLSHistos[i]->GetYaxis()->SetTitle("counts");
+        oneDLSHistos[i]->GetYaxis()->SetTitleOffset(1.2);
+        oneDScaledLSHistos[i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
+        oneDScaledLSHistos[i]->GetYaxis()->SetTitle("counts");
+        oneDScaledLSHistos[i]->GetYaxis()->SetTitleOffset(1.2);
+        oneDSubtractedInvMassHistos[i]->GetXaxis()->SetTitle("Invariant Mass GeV/c^{2}");
+        oneDSubtractedInvMassHistos[i]->GetYaxis()->SetTitle("counts");
+        oneDSubtractedInvMassHistos[i]->GetYaxis()->SetTitleOffset(1.2);
         
-            binMassLowUS  = oneDUSHistos[k][i]->GetXaxis()->FindBin(sideBandLow);            //get normalization factors to scale the LS distribution
-            binMassHighUS = oneDUSHistos[k][i]->GetXaxis()->FindBin(sideBandHigh);
-            binMassLowLS = oneDLSHistos[k][i]->GetXaxis()->FindBin(sideBandLow);            //get normalization factors to scale the LS distribution
-            binMassHighLS = oneDLSHistos[k][i]->GetXaxis()->FindBin(sideBandHigh);
+        //cout << "spot6" << endl;
         
-            countsSideBandUS = oneDUSHistos[k][i]->Integral(binMassLowUS, binMassHighUS);
-            countsSideBandLS = oneDLSHistos[k][i]->Integral(binMassLowLS, binMassHighLS);
+        xAxisUS = oneDUSHistos[i]->GetXaxis();
+        xAxisLS = oneDLSHistos[i]->GetXaxis();
         
-            //Calculate peak region values
+        //cout << "spot7" << endl;
         
-            binMassLowUS  = xAxisUS->FindBin(massLow);            
-            binMassHighUS = xAxisUS->FindBin(massHigh);
-            binMassLowLS  = xAxisLS->FindBin(massLow);            
-            binMassHighLS = xAxisLS->FindBin(massHigh);
+        binMassLowUS  = oneDUSHistos[i]->GetXaxis()->FindBin(sideBandLow);            //get normalization factors to scale the LS distribution
+        binMassHighUS = oneDUSHistos[i]->GetXaxis()->FindBin(sideBandHigh);
+        //cout << "spot8" << endl;
+        binMassLowLS = oneDLSHistos[i]->GetXaxis()->FindBin(sideBandLow);            //get normalization factors to scale the LS distribution
+        //cout << "spot9" << endl;
+        binMassHighLS = oneDLSHistos[i]->GetXaxis()->FindBin(sideBandHigh);
         
-            oneDUSHistos[k][i]->Sumw2();
-            oneDUSHistos[k][i]->SetMarkerStyle(20);
-            oneDLSHistos[k][i]->Sumw2();
-            oneDLSHistos[k][i]->SetMarkerStyle(20);
-            oneDSubtractedInvMassHistos[k][i]->Sumw2();
-            oneDSubtractedInvMassHistos[k][i]->SetMarkerStyle(20);
+        //cout << "spot10" << endl;
         
-            oneDUSHistos[k][i]->Draw();
+        countsSideBandUS = oneDUSHistos[i]->Integral(binMassLowUS, binMassHighUS);
+        countsSideBandLS = oneDLSHistos[i]->Integral(binMassLowLS, binMassHighLS);
+        
+        //Calculate peak region values
+        
+        binMassLowUS  = xAxisUS->FindBin(massLow);            
+        binMassHighUS = xAxisUS->FindBin(massHigh);
+        binMassLowLS  = xAxisLS->FindBin(massLow);            
+        binMassHighLS = xAxisLS->FindBin(massHigh);
+        
+        oneDUSHistos[i]->Sumw2();
+        oneDUSHistos[i]->SetMarkerStyle(20);
+        oneDLSHistos[i]->Sumw2();
+        oneDLSHistos[i]->SetMarkerStyle(20);
+        oneDSubtractedInvMassHistos[i]->Sumw2();
+        oneDSubtractedInvMassHistos[i]->SetMarkerStyle(20);
+        
+        oneDUSHistos[i]->Draw();
                 
-            tmp = path + invariantMassHistogramsFolder + invariantMassOutputFolders[k] + oneDUSStrings[k] + binLabelCentralityClass[i] + fileType;
-            c->SaveAs(tmp);
+        tmp = path + oneDUSStrings[i] + fileType;
+        c->SaveAs(tmp);
         
-            //oneDUSHistos[i]->SetTitle("");
-            //oneDUSHistos[i]->Draw();
-            //tmp = path + oneDUSStrings[i] + fileTypeEps;
-            //c->SaveAs(tmp);
+        LSScaleFactor[i] = countsSideBandUS/countsSideBandLS;
         
-            LSScaleFactor[k][i] = countsSideBandUS/countsSideBandLS;
+        oneDScaledLSHistos[i]->Scale(LSScaleFactor[i]);            //normalize LS spectrum here
         
-            oneDScaledLSHistos[k][i]->Scale(LSScaleFactor[k][i]);            //normalize LS spectrum here
+        countsPeakRegionUS = oneDUSHistos[i]->Integral(binMassLowUS, binMassHighUS);
+        countsPeakRegionLS = oneDScaledLSHistos[i]->Integral(binMassLowLS, binMassHighLS);
         
-            countsPeakRegionUS = oneDUSHistos[k][i]->Integral(binMassLowUS, binMassHighUS);
-            countsPeakRegionLS = oneDScaledLSHistos[k][i]->Integral(binMassLowLS, binMassHighLS);  //this gets an estimate for B from the LS scaled to the BG in the US, using a single sideband
+        cout << "PtBin: " << i << endl;
+        //cout << "LS Scale Factor: " << LSScaleFactor[i] << endl;
+        cout << "S+B (from integral in mass window): " << countsPeakRegionUS << endl;
+        cout << "B (from LS estimate): " << countsPeakRegionLS << endl;
         
-            invariantMassInfo << "____________________________________________________________________________________________________" << endl;
-            invariantMassInfo << "PtBin (0: 0-1, 1: 1-4, 2: 4-20, 3: all): " << k << endl;
-            invariantMassInfo << "CentBin (0: per, 1: mid, 2: cent, 3: all): " << i << endl;
-            //cout << "LS Scale Factor: " << LSScaleFactor[i] << endl;
-            invariantMassInfo << "S+B (from integral in mass window): " << countsPeakRegionUS << endl;
+        BOverSPlusB[i] = (countsPeakRegionLS/countsPeakRegionUS);
         
-            oneDSubtractedInvMassHistos[k][i]->Add(oneDUSHistos[k][i], oneDScaledLSHistos[k][i], 1, -1); // form subtracted spectrum here
+        oneDSubtractedInvMassHistos[i]->Add(oneDUSHistos[i], oneDScaledLSHistos[i], 1, -1); // form subtracted spectrum here
         
-            oneDSubtractedInvMassHistosFunction[k][i] = (TH1D*)oneDSubtractedInvMassHistos[k][i]->Clone();
-            tmp = oneDSubtractedInvMassStringsFunction[k] + binLabelCentralityClass[i];
-            oneDSubtractedInvMassHistosFunction[k][i]->SetTitle(tmp);
+        oneDSubtractedInvMassHistos[i]->Fit(g1, "qR0");
+        oneDSubtractedInvMassHistos[i]->Fit(e1, "qR0+");
+        oneDUSHistos[i]->Fit(e2, "qR");
         
-            oneDSubtractedInvMassHistos[k][i]->Fit(g1, "qR0");
-            oneDSubtractedInvMassHistos[k][i]->Fit(e1, "qR0+");
-       
-            g1->GetParameters(&par[0]);
-            e1->GetParameters(&par[3]);
+        integralFit = e2->Eval(1.82,0,0,0);
+        integralFit = integralFit + e2->Eval(1.83,0,0,0);
+        integralFit = integralFit + e2->Eval(1.84,0,0,0);
+        integralFit = integralFit + e2->Eval(1.85,0,0,0);
+        integralFit = integralFit + e2->Eval(1.86,0,0,0);
+        integralFit = integralFit + e2->Eval(1.87,0,0,0);
+        integralFit = integralFit + e2->Eval(1.88,0,0,0);
+        integralFit = integralFit + e2->Eval(1.89,0,0,0);
         
-            fun->SetParameters(par);
-            oneDSubtractedInvMassHistos[k][i]->Fit(fun, "qR+");
-            oneDSubtractedInvMassHistos[k][i]->SetMarkerColor(2);
+        BOverSPlusBFit[i] = integralFit/countsPeakRegionUS;
         
-            BGFunc->SetParameter(0, fun->GetParameter(3));
-            BGFunc->SetParameter(1, fun->GetParameter(4));
+        cout << "B (from fit estimate): " << integralFit << endl;
         
-            //------------------------This is where things are controversial -- how do I fit the residual background????-------------------
+        cout << "B/S+B (LS): " << BOverSPlusB[i] << endl;
+        cout << "B/S+B (Fit): " << BOverSPlusBFit[i] << endl << endl;
         
+        g1->GetParameters(&par[0]);
+        e1->GetParameters(&par[3]);
         
-            TF1 *fl = new TF1("fl",fline,1.6,2.1,2);
-            fl->SetParameters(2,-1);
-            //fit only the linear background excluding the signal area
-            reject = kTRUE;
-            oneDSubtractedInvMassHistos[k][i]->Fit(fl,"qR");
-            reject = kFALSE;
+        fun->SetParameters(par);
+        oneDSubtractedInvMassHistos[i]->Fit(fun, "qR+");
+        oneDSubtractedInvMassHistos[i]->SetMarkerColor(2);
         
-            oneDSubtractedInvMassHistosFunction[k][i]->Add(fl, -1);
+        oneDSubtractedInvMassHistosFunction[i]->Add(e2, -1);
         
         
-            //-----------------------------------------------------------------------------------------------------------------------------
+        oneDUSHistos[i]->Draw();
+                
+        tmp = path + oneDUSStrings[i] + withFitLabel + fileType;
+        c->SaveAs(tmp);
         
-            oneDSubtractedInvMassHistosFunction[k][i]->Fit(finalGaussian, "qR");
+        oneDLSHistos[i]->Draw();
+                
+        tmp = path + oneDLSStrings[i] + fileType;
+        c->SaveAs(tmp);
         
-            integralFit = oneDSubtractedInvMassHistosFunction[k][i]->Integral(binMassLowUS, binMassHighUS);
+        oneDScaledLSHistos[i]->Draw();
+                
+        tmp = path + oneDScaledLSStrings[i] + fileType;
+        c->SaveAs(tmp);
         
-            //integralFit is the estimate for "S"
-            //countsPeakRegionUS is S+B
-            //B = countsPeakRegionUS - integralFit
+        //oneDSubtractedInvMassHistos[i]->Fit(fun, "R+");
         
-            BOverSPlusBFit[k][i] = (countsPeakRegionUS - integralFit)/countsPeakRegionUS;    //  B/S+B scale factor from background subtraction from fit
-            SPlusBOverSFit[k][i] = countsPeakRegionUS/integralFit;                           //  S+B/S used as a final scale factor on the final correlation quantity -- from fit
-        
-            invariantMassInfo << "S (from fit estimate): " << integralFit << endl;
-            invariantMassInfo << "B (from fit estimate): " << (countsPeakRegionUS-integralFit) << endl;
-            invariantMassInfo << "S+B/S from LS subtraction + expo Fit:  " << SPlusBOverSFit[k][i] << endl;
-            invariantMassInfo << "B/S+B from LS subtraction + expo Fit: " << BOverSPlusBFit[k][i] << endl << endl;
-        
-            oneDUSHistos[k][i]->Draw();
-            oneDScaledLSHistos[k][i]->Draw("SAME");
-            tmp = path + invariantMassHistogramsFolder + invariantMassOutputFolders[k] + oneDUSStrings[k] + binLabelCentralityClass[i] + withFitLabel + fileType;
-            c->SaveAs(tmp);
-            oneDLSHistos[k][i]->Draw();
-            tmp = path + invariantMassHistogramsFolder + invariantMassOutputFolders[k] + oneDLSStrings[k] + binLabelCentralityClass[i] + fileType;
-            c->SaveAs(tmp);
-            oneDSubtractedInvMassHistos[k][i]->Draw();
-            tmp = path + invariantMassHistogramsFolder + invariantMassOutputFolders[k] + oneDSubtractedInvMassStrings[k] + binLabelCentralityClass[i] + fileType;
-            c->SaveAs(tmp);
-            oneDSubtractedInvMassHistosFunction[k][i]->Draw();
-            tmp = path + invariantMassHistogramsFolder + invariantMassOutputFolders[k] + oneDSubtractedInvMassStringsFunction[k] + binLabelCentralityClass[i] + fileType;
-            c->SaveAs(tmp);
-        }
+        oneDSubtractedInvMassHistos[i]->Draw();
+                
+        tmp = path + oneDSubtractedInvMassStrings[i] + fileType;
+        c->SaveAs(tmp);
+    
+        oneDSubtractedInvMassHistosFunction[i]->Draw();
+        tmp = path + oneDSubtractedInvMassStringsFunction[i] + fileType;
+        c->SaveAs(tmp);
+    
+        //cout << "make a pass" << endl;
     }
     
-    invariantMassInfo.close();
+   
 
-    cout << endl << "Invariant Mass histograms process and S & B calculated for each Pt/Centrality bin" << endl << endl;
     
 //------------------------------------------
 //BEGIN CORRELATION HISTOGRAM INFORMATION
@@ -620,9 +579,6 @@ int corrHistogramMaker(){
                 
                 sibCorrBin[band][k][j][i] = (TH2D*)file->Get(str1);
                 mixCorrBin[band][k][j][i] = (TH2D*)file->Get(str2);
-                
-                sibCorrBin[band][k][j][i]->Sumw2();
-                mixCorrBin[band][k][j][i]->Sumw2();
                 
                 //This gets the stat errors for the raw sibling and mixed histograms
                 for(int etaBin = 0; etaBin < NUM_ETA_BINS; etaBin++){
@@ -709,8 +665,6 @@ int corrHistogramMaker(){
     
    }
 
-   cout << endl << "Sibling and mixed histograms extracted" << endl;
-   
     /**********************************************************************************
         NORMALIZE THE MIXED HISTOGRAMS HERE
     **********************************************************************************/
@@ -784,9 +738,7 @@ int corrHistogramMaker(){
    }
    //--------------------------------------------------------calculate some useful quantities here--------------------------------------
    
-   cout << endl << "Mixed Histograms Normalized." << endl << endl;
-   
-   for(int band = 0; band < 4; band++){                               //build arrays to store information for adding the various alpha's (Vz, centrality, etc.)
+   for(int band = 0; band < 4; band++){
        for(int k = 0; k < NUM_PT_BINS; k++){
            
            integralRawMixHistosVzIntCentInt[band][k][0] = 0;
@@ -810,7 +762,6 @@ int corrHistogramMaker(){
     }   
  //------------------------------------------------------------------------------------------------------------------------------------
  
-   cout << "Weight Factors Calculated." << endl << endl;
     /**********************************************************************************
         CALCULATE DELTA RHO HERE
     **********************************************************************************/
@@ -883,17 +834,10 @@ int corrHistogramMaker(){
             }
         }// end loop to make sibling minus scaled mixed histograms (delRho)
     }
-  
-   cout << "deltaRho for each band (US, LS, SBL, SBR) calculated. << endl << endl;
-  
-   //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-   //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-   //-----------------------------------------BEGIN SECTION TO CALCULATE ACTUAL CORRELATIONS--------------------------------------------------------------------
-   //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-   //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-   
-   
-    for(int band = 0; band < 4; band++){     // begin loop to make delRho/RhoRef US histos -- this will calculate the delRho/Rho histograms for all 4 bands -- LS, US, SBR, SBL
+   //-----------------------------------------------------------------------------------------------------------------------
+   //-----------------------------------------BEGIN SECTION TO CALCULATE ACTUAL CORRELATIONS--------------------------------
+   //-----------------------------------------------------------------------------------------------------------------------
+    for(int band = 0; band < 4; band++){     // begin loop to make delRho/RhoRef US histos
         for(int i = 0; i < NUM_CENT_BINS; i++){ 
             for(int k = 0; k < NUM_PT_BINS; k++){
             
@@ -948,10 +892,10 @@ int corrHistogramMaker(){
                     delRhoOverRhoRefBinVzInt[band][k][i]->Draw("SURF1");
                     c->SaveAs(str1);
                     
-                    //str1 = path + outputFolders[4] + bandFolders[band] + PtSubFolders[k] + VzSubFolders[10] + delRhoOverRhoRefLabels[band] + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileTypeEps;
-                    //formatCorrHist(delRhoOverRhoRefBinVzInt[band][k][i], "");
-                    //delRhoOverRhoRefBinVzInt[band][k][i]->Draw("SURF1");
-                    //c->SaveAs(str1);
+                    str1 = path + outputFolders[4] + bandFolders[band] + PtSubFolders[k] + VzSubFolders[10] + delRhoOverRhoRefLabels[band] + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileTypeEps;
+                    formatCorrHist(delRhoOverRhoRefBinVzInt[band][k][i], "");
+                    delRhoOverRhoRefBinVzInt[band][k][i]->Draw("SURF1");
+                    c->SaveAs(str1);
                     
                 }
             
@@ -966,11 +910,10 @@ int corrHistogramMaker(){
         } //end loop to make delRho/Rho_ref histograms*/
     }
     
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-    //---------------------------THIS SECTION DOES THE FINAL SUBTRACTION IN THE 16 MULTIPLICITY BINS------------------------------------------------------------------
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
     
-        for(int i = 0; i < NUM_CENT_BINS; i++){// begin side band subtraction here -- this will take the US delRho/Rho and subtract the SB average delRho/Rho from it
+    
+    
+        for(int i = 0; i < NUM_CENT_BINS; i++){// begin side band subtraction here
             for(int k = 0; k < NUM_PT_BINS; k++){
            
                 str1 = sideBandAverageLabel + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i];
@@ -986,13 +929,19 @@ int corrHistogramMaker(){
                 str1 = phiProj + subtractedCorrLabels[0] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i];
                 fullySubtractedCorrSideBandCentPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
            
-                fullySubtractedCorrSideBandCent[k][i]->Add(delRhoOverRhoRefBinVzInt[1][k][i], sideBandAverage[k][i], 1, -BOverSPlusBFit[k][3]);
-               
+                fullySubtractedCorrSideBandCent[k][i]->Add(delRhoOverRhoRefBinVzInt[1][k][i], sideBandAverage[k][i], 1, -BOverSPlusB[k]);
+                
+                fullySubtractedCorrSideBandCentPhiProj[k][i]->Add(delRhoOverRhoRefBinPhiProjVzInt[1][k][i], sideBandAveragePhiProj[k][i], 1, -BOverSPlusB[k]);
+                
                 str1 = path + outputFolders[4] + bandFolders[4] + PtSubFolders[k] + VzSubFolders[10] + sideBandAverageLabel + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileType; 
                 sideBandAverage[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 sideBandAverage[k][i]->Draw("SURF1");
                 c->SaveAs(str1);
-                
+                formatCorrHist(sideBandAverage[k][i], "");
+                str1 = path + outputFolders[4] + bandFolders[4] + PtSubFolders[k] + VzSubFolders[10] + sideBandAverageLabel + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileTypeEps; 
+                sideBandAverage[k][i]->Draw("SURF1");
+                c->SaveAs(str1);
+            
                 str1 = path + outputFolders[5] + outputFolders[7] + PtSubFolders[k] + subtractedCorrLabels[0] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i] + fileType; 
                 fullySubtractedCorrSideBandCent[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 fullySubtractedCorrSideBandCent[k][i]->Draw("SURF1");
@@ -1000,16 +949,15 @@ int corrHistogramMaker(){
                 fullySubtractedCorrSideBandCent[k][i]->Write();
                 
                 str1 = path + outputFolders[5] + outputFolders[7] + PtSubFolders[k] + phiProj + subtractedCorrLabels[0] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i] + fileType; 
-                fullySubtractedCorrSideBandCentPhiProj[k][i] = (TH1D*)fullySubtractedCorrSideBandCent[k][i]->ProjectionY();
+                //fullySubtractedCorrSideBandCentPhiProj[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 fullySubtractedCorrSideBandCentPhiProj[k][i]->Draw();
                 c->SaveAs(str1);
            
            
             }    
-        }// end side band subtraction here
+        }// // begin side band subtraction here
         
-        
-        for(int i = 0; i < NUM_CENT_BINS; i++){// begin LS subtraction here  -- this will take the US delRho/Rho and subtract the LS delRho/Rho from it
+        for(int i = 0; i < NUM_CENT_BINS; i++){// begin LS subtraction here
             for(int k = 0; k < NUM_PT_BINS; k++){
            
                 str1 = subtractedCorrLabels[1] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i];
@@ -1017,7 +965,7 @@ int corrHistogramMaker(){
                 str1 = phiProj + subtractedCorrLabels[1] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i];
                 fullySubtractedCorrLSCentPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
            
-                fullySubtractedCorrLSCent[k][i]->Add(delRhoOverRhoRefBinVzInt[1][k][i], delRhoOverRhoRefBinVzInt[3][k][i], 1, -BOverSPlusBFit[k][3]);
+                fullySubtractedCorrLSCent[k][i]->Add(delRhoOverRhoRefBinVzInt[1][k][i], delRhoOverRhoRefBinVzInt[3][k][i], 1, -BOverSPlusB[k]);
                 
                 //fullySubtractedCorrLSCentPhiProj[k][i]->Add(delRhoOverRhoRefBinPhiProjVzInt[1][k][i], delRhoOverRhoRefBinPhiProjVzInt[3][k][i], 1, -BOverSPlusB[k]);
             
@@ -1027,32 +975,28 @@ int corrHistogramMaker(){
                 c->SaveAs(str1);
                 
                 str1 = path + outputFolders[5] + outputFolders[6] + PtSubFolders[k] + phiProj + subtractedCorrLabels[0] + PtBinLabel[k] + binLabelPt[k] + centBinLabel + binLabelCent[i] + fileType; 
+                //fullySubtractedCorrLSCentPhiProj[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 fullySubtractedCorrLSCentPhiProj[k][i] = (TH1D*) fullySubtractedCorrLSCent[k][i]->ProjectionY();
+                //fullySubtractedCorrLSCentPhiProj[k][i]->Sumw2();
                 fullySubtractedCorrLSCentPhiProj[k][i]->Draw();
                 c->SaveAs(str1);
            
            
             }    
-        }// end LS subtraction here
+        }// // begin side band subtraction here
           
 
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------      
-    //---------------------------THIS SECTION DOES THE FINAL SUBTRACTION IN THE 3 centrality BINS----------------------------------------------------------------      
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    
-          
-      
+       //From here we have different options for combing centralities--------------------------------------------------------------------------------------------------
     
     TString bandSubtract[3]          = {"LS_","SideBand_", "US"};
     int temp = 0;
-    int centralityCombinations[6] = {0, 2, 3, 8, 9, 15}; //This was calculated for combining multiplicity bins into the proper centrality bins
+    int centralityCombinations[6] = {0, 2, 3, 8, 9, 15}; 
     int numBinsInCentrality = 0;
    
     for(int k = 0; k < NUM_PT_BINS; k++){
         for(int i = 0; i < 3; i++){
            
-           
+           //cout << "Here we are!" << endl;
            str1 =  fullySubtractedLabelCustomCentrality + bandSubtract[2] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i];
            fullySubtractedCorrCustomCentralityUS[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
            
@@ -1117,185 +1061,54 @@ int corrHistogramMaker(){
        }    
     }   
       
-       double phiProjectionScaleFactor = 1.0/9.0;
        
         for(int k = 0; k < 4; k++){
             for(int i = 0; i < 3; i++){
       
                 cout << "k, i: " << k << " , " << i << endl;
                
-                fullySubtractedCorrCustomCentralityLS[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[1][k][i], delRhoOverRhoRefBinVzIntCentInt[3][k][i], 1, -BOverSPlusBFit[k][i]);
-                fullySubtractedCorrCustomCentralityLS[k][i]->Scale(SPlusBOverSFit[k][i]);
-                
+                fullySubtractedCorrCustomCentralityLS[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[1][k][i], delRhoOverRhoRefBinVzIntCentInt[3][k][i], 1, -BOverSPlusBFit[k]);
+                fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Add(delRhoOverRhoRefBinVzIntCentIntPhiProj[1][k][i], delRhoOverRhoRefBinVzIntCentIntPhiProj[3][k][i], 1, -BOverSPlusBFit[k]);
+               
                 fullySubtractedCorrCustomCentralitySideBand[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[1][k][i]);
-                fullySubtractedCorrCustomCentralitySideBand[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[0][k][i], -.5*BOverSPlusBFit[k][i]);
-                fullySubtractedCorrCustomCentralitySideBand[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[2][k][i], -.5*BOverSPlusBFit[k][i]);
-                fullySubtractedCorrCustomCentralitySideBand[k][i]->Scale(SPlusBOverSFit[k][i]);
-                
-                fullySubtractedCorrCustomCentralityLSPhiProj[k][i] = (TH1D*) fullySubtractedCorrCustomCentralityLS[k][i]->ProjectionY();
-                fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Scale(phiProjectionScaleFactor);
-                
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[0][k][i], -.5*BOverSPlusBFit[k]);
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->Add(delRhoOverRhoRefBinVzIntCentInt[2][k][i], -.5*BOverSPlusBFit[k]);
+               
                 fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i] = (TH1D*) fullySubtractedCorrCustomCentralitySideBand[k][i]->ProjectionY();
-                fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Scale(phiProjectionScaleFactor);
        
                 str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileType;
                 fullySubtractedCorrCustomCentralityLS[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 fullySubtractedCorrCustomCentralityLS[k][i]->Draw("SURF1");
                 c->SaveAs(str1);
-                
+                formatCorrHist(fullySubtractedCorrCustomCentralityLS[k][i], "");
+                str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileTypeEps;
+                fullySubtractedCorrCustomCentralityLS[k][i]->Draw("SURF1");
+                c->SaveAs(str1);
                 fullySubtractedCorrCustomCentralityLS[k][i]->Write();
            
                 str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileType;
                 fullySubtractedCorrCustomCentralitySideBand[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 fullySubtractedCorrCustomCentralitySideBand[k][i]->Draw("SURF1");
                 c->SaveAs(str1);
-                
+                formatCorrHist(fullySubtractedCorrCustomCentralitySideBand[k][i], "");
+                str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileTypeEps;
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->Draw("SURF1");
+                c->SaveAs(str1);
                 fullySubtractedCorrCustomCentralitySideBand[k][i]->Write();
            
                 str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileType;
+                //fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Sumw2();
                 fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Draw();
                 c->SaveAs(str1);
            
                 str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fileType;
+                
+                //fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Sumw2();
                 fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Draw();
                 c->SaveAs(str1);
             }    
         }
  
- 
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-    //--------------------------------------FITTING AND PARAMETER EXTRACTION DONE HERE---------------------------------------------------------------------------------
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
- 
- 
-    TF2 *myfit   = new TF2("parameterFitFunction","[0] + [1]*cos(y) + [2]*2*cos(2*y) + [3]*(exp(-0.5*(y*y)/([4]*[4]))+exp(-0.5*((y-6.28)*(y-6.28))/([4]*[4])))*exp(-0.5*(x*x)/([5]*[5]))", -1.8, 1.8,-1.57,4.71);
-    TF1 *myfit1D = new TF1("parameterFitFunction","[0] + [1]*cos(x) + [2]*2*cos(2*x)" , -1.57, 4.71);
- 
-    TH2D* fullySubtractedCorrCustomCentralityLSFit[4][3];
-    TH2D* fullySubtractedCorrCustomCentralityLSRes[4][3];
-    TH1D* fullySubtractedCorrCustomCentralityLSFitPhiProj[4][3];
-    TH1D* fullySubtractedCorrCustomCentralityLSResPhiProj[4][3];
-    
-    TString fitLabel = "_Fit";
-    TString resLabel = "_Residual";
-    
-    ofstream fitParameterFile2D;
-    TString fitParameterFileName2D = "Extracted_Parameters_from_fitting_2D.txt";
-    TString fitParamterOutputFile2D = path + fitParameterFileName2D;
-    fitParameterFile2D.open (fitParamterOutputFile2D);
-    
-    ofstream fitParameterFile1D;
-    TString fitParameterFileName1D = "Extracted_Parameters_from_fitting_1D.txt";
-    TString fitParamterOutputFile1D = path + fitParameterFileName1D;
-    fitParameterFile1D.open (fitParamterOutputFile1D);
-    
-    double v2_2D;
-    double v2_2D_Error;
-    double v2_1D;
-    double v2_1D_Error;
-    
- 
-    for(int k = 0; k < 4; k++){
-        for(int i = 0; i < 3; i++){ 
- 
-           
-            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
-            fullySubtractedCorrCustomCentralityLSFit[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
-            fullySubtractedCorrCustomCentralityLSRes[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-            
-            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
- 
-            fitParameterFile2D << "_________________________________________________________________________________________________________" << endl;
-            fitParameterFile1D << "_________________________________________________________________________________________________________" << endl;
- 
-            myfit1D->SetParLimits(0, -.1, .1); //offset A0
-            myfit1D->SetParLimits(0, -.1, .1); //v1     AD
-            myfit1D->SetParLimits(0, -.1, .1); //v2     AQ
- 
-            myfit->SetParLimits(0, -.1, .1);    //offset A0
-            myfit->SetParLimits(1, -.1,  .1);    //v1     AD
-            myfit->SetParLimits(2, -.1,  .1);    //v2     AQ
-            myfit->SetParLimits(3,  0,  1);    //Jetamp A1
-        
-            myfit->SetParLimits(4, 0.1, 6);     //sigEta
-            myfit->SetParLimits(5, 0.1, 6);    //sigPhi
-            
-            //////////////////////2d fitting///////////////////////////////////////
-            
-            fullySubtractedCorrCustomCentralityLS[k][i]->Fit(myfit, "R0E");
-            fullySubtractedCorrCustomCentralityLSFit[k][i] = (TH2D*)fullySubtractedCorrCustomCentralityLS[k][i]->Clone("hfit");
-            fullySubtractedCorrCustomCentralityLSFit[k][i]->Eval(myfit);
-            
-            fitParameterFile2D << endl << "pt bin (3 is integrated): " << k << "    Centrality Bin (0 - per, 1 - mid cent, 2 - cent): " << i << endl;
-            fitParameterFile2D << endl << "A0" << "\t" << "AD" << "\t" <<"AQ" << "\t" <<"Jet Amp A1" << "\t" << "SigEta" << "\t" <<"SigPhi" << "\t" << endl;
-            
-            fitParameterFile2D << endl << myfit->GetParameter(0) << "\t" << myfit->GetParameter(1) << "\t" 
-                 << myfit->GetParameter(2) << "\t" << myfit->GetParameter(3) << "\t" 
-                 << myfit->GetParameter(5) << "\t" << myfit->GetParameter(4) << endl; 
-            
-            fitParameterFile2D << myfit->GetParError(0) << "\t" << myfit->GetParError(1) << "\t" 
-                 << myfit->GetParError(2) << "\t" << myfit->GetParError(3) << "\t" 
-                 << myfit->GetParError(5) << "\t" << myfit->GetParError(4) << endl;            
-            
-            fullySubtractedCorrCustomCentralityLSRes[k][i] = (TH2D*)fullySubtractedCorrCustomCentralityLS[k][i]->Clone("hres");
-            //resHistUS[i]->Add(fitHistUS[i], angCorrUS[i], 1, -1);
-            fullySubtractedCorrCustomCentralityLSRes[k][i]->Add(fullySubtractedCorrCustomCentralityLSFit[k][i], -1);
-            
-            
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSFit[k][i]->Draw("SURF1");
-            c->SaveAs(str1);
- 
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSRes[k][i]->Draw("SURF1");
-            c->SaveAs(str1); 
-            
-            /////////////////////////////1d fitting///////////////////////////////////////////
-    
-            fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Fit(myfit1D, "R0E");
-            //fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Clone("hfit");
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i]->Eval(myfit1D);
- 
-            fitParameterFile1D << endl << "pt bin (3 is integrated): " << k << "    Centrality Bin (0 - per, 1 - mid cent, 2 - cent): " << i << endl;
-            fitParameterFile1D << endl << "A0" << "\t" << "AD" << "\t" <<"AQ" << "\t" << endl;
-            
-            fitParameterFile1D << endl << myfit1D->GetParameter(0) << "\t" << myfit1D->GetParameter(1) << "\t" << myfit1D->GetParameter(2) << endl; 
-            fitParameterFile1D << myfit1D->GetParError(0) << "\t" << myfit1D->GetParError(1) << "\t" << myfit1D->GetParError(2) << endl; 
-            
-            v2_2D = TMath::Sqrt(myfit->GetParameter(2));
-            v2_2D_Error = v2_2D*(.5)*(myfit->GetParError(2)/myfit->GetParameter(2));
-            
-            v2_1D = TMath::Sqrt(myfit1D->GetParameter(2));
-            v2_1D_Error = v2_2D*(.5)*(myfit1D->GetParError(2)/myfit1D->GetParameter(2));
-            
-            fitParameterFile2D << "V2 = " << v2_2D << " +/- " << v2_2D_Error << endl;
-            fitParameterFile1D << "V2 = " << v2_1D << " +/- " << v2_1D_Error << endl;
-            
-            
-            
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Clone("hres");
-            //resHistUS[i]->Add(fitHistUS[i], angCorrUS[i], 1, -1);
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i]->Add(fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i], -1);
-            
-            
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i]->Draw();
-            c->SaveAs(str1);
- 
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i]->Draw();
-            c->SaveAs(str1); 
- 
- 
-        }
-    }    
- 
-    fitParameterFile2D.close();
-    fitParameterFile1D.close();
     file->Close();
     output->Close();
    
