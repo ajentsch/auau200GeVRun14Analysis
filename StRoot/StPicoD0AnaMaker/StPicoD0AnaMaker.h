@@ -55,14 +55,20 @@ class StPicoD0AnaMaker : public StMaker
     int  getCentralityBin(int nTracks);
     int  getVzBin(double Vz);
     int  getPtBin(double pt);
+    int  getTopologicalCutPtBin(double pt);
+    int  getFinePtBin(double pt);
     int  getCentralityClass(double nTracks);
     bool checkDCAtoPV(float trackDCA);
+	bool pairWisePtCutCheck(int, double, double , int);
+	int getUSInvMassBandBin(double, int, double, double, double, double, double, double) const;
 
     int NUM_PHI_BINS;
     int NUM_ETA_BINS;
     int NUM_VZ_BINS;
     int NUM_CENT_BINS;
     int NUM_PT_BINS;
+    int NUM_D0_CUT_PT_BINS;
+    double phiBinShift;
     
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
@@ -97,7 +103,9 @@ class StPicoD0AnaMaker : public StMaker
     int VzBin;
     int ptBin;
     int bandBin;
+    int finePtBin;
     int centralityClass;
+    int topologicalCutPtBin;
     
     int nVzBins;
     int nCentBins;
@@ -114,22 +122,32 @@ class StPicoD0AnaMaker : public StMaker
     double hadronPtMax;
     float trackChi2max;
     float trackDCAtoPvtx;
+    int   nHitsFitMin;
+    float nHitsFitMinOverMax;
     double d0PtLow;
     double d0PtHigh;
-    double d0DecayLengthMin;
+    //double d0DecayLengthMin;
     double d0DecayLengthMax;
-    double daughterDCA;
+    //double daughterDCA;
     double d0DaughterPionPtMin;
     double d0DaughterKaonPtMin;
-    double kaonDCA;
-    double pionDCA;
-    double d0DCAtoPV;
+    //double kaonDCA;
+    //double pionDCA;
+    //double d0DCAtoPV;
     double D0InvMassLow;
     double D0InvMassHigh;
     double USSideBandLeftLow;
     double USSideBandLeftHigh;
     double USSideBandRightLow;
     double USSideBandRightHigh;
+    
+    double d0TopologicalCutArray[5][5]; //first index is pt bin, second index is cuts -- decayLength, DCADaughters, d0DCAPV, PiDCAPV, KDCAPV
+    
+    //double d0DecayLengthMin[5];
+    //double daughterDCA[5];
+    //double kaonDCA[5];
+    //double pionDCA[5];
+    //double d0DCAtoPV[5];
     
     bool DEBUG;                //important flags for debugging and for switching binning on and off
     bool DEBUG_MIX_BUFFER;
@@ -139,18 +157,27 @@ class StPicoD0AnaMaker : public StMaker
     bool D0_HADRON_CORR;
     bool EVENT_MIXING;
     bool USE_PT_BINS;
+    bool USE_FINE_PT_BINS;
+	bool USE_TOF;
+	bool USE_PAIR_WISE_PT_CUT;
+    bool USE_TOF_HYBRID;
+    bool USE_DOUBLE_MIS_PID_PROTECTION;
                                            // vpdmb-5-p-nobsmd-hlt // vpdmb-5-p-nobsmd-hlt // vpdmb-5-p-nobsmd // vpdmb-5-p-nobsmd // vpdmb-5-p-nobsmd 
-    unsigned int trigger[5];    
+    unsigned int trigger[5]; 
+
+      
     
-    TH2D* sibCorrBin[4][10][16];
-    TH2D* mixCorrBin[4][10][16];
-    TH2D* sibCorrBinPt[4][6][10][16];
-    TH2D* mixCorrBinPt[4][6][10][16];
+    TH2D* sibCorrBin[5][10][16];
+    TH2D* mixCorrBin[5][10][16];
+    TH2D* sibCorrBinPt[5][6][10][16];
+    TH2D* mixCorrBinPt[5][6][10][16];
     TH1D* etaDistVz[10];
     TH1D* phiDistVz[10];
     TH2D* etaPhiDistVz[10];
     TH1D* D0InvMassPtBin[6][3];
     TH1D* LSInvMassPtBin[6][3];
+    TH1D* D0InvMassFinePtBin[11][3];
+    TH1D* LSInvMassFinePtBin[11][3];
     TH1D* ptDist;
     TH1D* invMass;
     TH1D* invMassPer;     
@@ -160,10 +187,62 @@ class StPicoD0AnaMaker : public StMaker
     TH1D* likeSignBGMidCent;
     TH1D* likeSignBGCent;
     TH1D* likeSignBG;
-    TH1D* D0EtaDist;
-    TH1D* D0PhiDist;
-    TH1I* eventCounter;
-    TH1D* D0ptDist;
+	TH1I* eventCounter;
+    TH1D* D0ptDist[3][6];
+	TH1D* D0EtaDist[3][6];
+    TH1D* D0PhiDist[3][6];
+    TH1D* D0KaonPtDist[3][6];
+    TH1D* D0KaonEtaDist[3][6]; 
+    TH1D* D0KaonPhiDist[3][6]; 
+    TH1D* D0PionPtDist[3][6]; 
+    TH1D* D0PionEtaDist[3][6]; 
+    TH1D* D0PionPhiDist[3][6];  
+    TH1D* D0DecayLengthDist[3][6]; 
+    TH1D* D0DCAToPVDist[3][6]; 
+    TH1D* D0KaonPVDist[3][6]; 
+    TH1D* D0PionPVDist[3][6]; 
+    TH1D* D0DaughterDCADist[3][6]; 
+    TH2D* D0PtKaonVsPtPion[3][6];
+    TH2D* D0PKaonVsPPion[3][6];
+    TH2D* D0RawEtaVsRawPhi[3][6];
+    TH2D* D0RawEtaVsRawPhiLeftPtBlob[3][6];
+    TH2D* D0RawEtaVsRawPhiRightPtBlob[3][6];
+    //TH2D* SBLPtKaonVsPtPion[6];
+    //TH2D* SBLPKaonVsPPion[6];
+    //TH2D* SBLRawEtaVsRawPhi[6];
+    //TH2D* SBRPtKaonVsPtPion[6];
+    //TH2D* SBRPKaonVsPPion[6];
+    //TH2D* SBRRawEtaVsRawPhi[6];
+   
+    TH1D* D0EtaDistInt;
+    TH1D* D0PhiDistInt;
+    TH1D* D0KaonPtDistInt;
+    TH1D* D0KaonEtaDistInt;
+    TH1D* D0KaonPhiDistInt;
+    TH1D* D0PionPtDistInt;
+    TH1D* D0PionEtaDistInt;
+    TH1D* D0PionPhiDistInt;
+    TH1D* D0DecayLengthDistInt;
+    TH1D* D0DCAToPVDistInt;
+    TH1D* D0KaonPVDistInt;
+    TH1D* D0PionPVDistInt;
+    TH1D* D0DaughterDCADistInt;
+   
+    TH1D* KPiptDist;
+    TH1D* KPiEtaDistInt;
+    TH1D* KPiPhiDistInt;
+    TH1D* KPiKaonPtDistInt;
+    TH1D* KPiKaonEtaDistInt;
+    TH1D* KPiKaonPhiDistInt;
+    TH1D* KPiPionPtDistInt;
+    TH1D* KPiPionEtaDistInt;
+    TH1D* KPiPionPhiDistInt;
+    TH1D* KPiDecayLengthDistInt;
+    TH1D* KPiDCAToPVDistInt;
+    TH1D* KPiKaonPVDistInt;
+    TH1D* KPiPionPVDistInt;
+    TH1D* KPiDaughterDCADistInt;
+   
     TH1D* kaonPtDist;
     TH1D* pionPtDist;
     TH1D* kaonEtaDist;
@@ -178,18 +257,31 @@ class StPicoD0AnaMaker : public StMaker
     TH2D* invBetaVsPt;
     TH1I* usedTracks;
     TH1I* d0CountPerEvent;
-    TH2I* vZandCentBinPerEvent;
+    TH2D* vZandCentBinPerEvent;
     TH1D* histOfCuts;
     TH1D* hadronChi2;
+    TH1D* hadronNHitsFit;
+    TH1D* hadronNHitsFitOverMax;
     TH1D* pVtxX;
     TH1D* pVtxY;
     TH1D* pVtxZ;
     TH1D* DCAtoPrimaryVertex;
     TH1D* DCAtoPrimaryVertexCut;
-    TH2D* phiD0vsPhiH[10][16];     
-    TH2D* etaD0vsEtaH[10][16];
-    TH2D* phiD0vsEtaD0[10][16];
-    TH2D* phiHvsEtaH[10][16];
+    TH2D* phiD0vsPhiH[4][5][10][16];     
+    TH2D* etaD0vsEtaH[4][5][10][16];
+    TH2D* phiD0vsEtaD0[4][5][10][16];
+    TH2D* phiHvsEtaH[4][5][10][16];
+    TH2D* phiD0vsPhiHMixed[4][5][10][16];     
+    TH2D* etaD0vsEtaHMixed[4][5][10][16];
+    TH2D* phiD0vsEtaD0Mixed[4][5][10][16];
+    TH2D* phiHvsEtaHMixed[4][5][10][16];
+    
+    //mathematical functions for efficiency
+    
+    TF1 *effWeightPions;
+    TF1 *effWeightKaons;
+    TF1 *effWeightD0[3];
+    //TF1 *levy;
 
     ClassDef(StPicoD0AnaMaker, 0)
 };

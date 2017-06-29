@@ -30,8 +30,10 @@ void runPicoD0AnaMaker(TString d0list, TString outFileName, TString badRunListFi
    gSystem->Load("StPicoDstMaker");
    gSystem->Load("StPicoPrescales");
    gSystem->Load("StPicoCutsBase");
-   gSystem->Load("StPicoCutsBase");
-   gSystem->Load("StPicoD0EventMaker");
+   //gSystem->Load("StPicoCutsBase");
+   //gSystem->Load("StPicoD0EventMaker");
+   //gSystem->Load("StPicoCharmMaker");
+   gSystem->Load("StPicoCharmContainers");
    gSystem->Load("StPicoD0AnaMaker");
    gSystem->Load("StPicoHFMaker");
    gSystem->Load("StRefMultCorr");
@@ -79,28 +81,39 @@ void runPicoD0AnaMaker(TString d0list, TString outFileName, TString badRunListFi
 
    // add your cuts here.
    //
-   d0Cuts->setCutRequireHFT(false); //BE SURE TO CHANGE IN ANA MAKER IF YOU CHANGE HERE FOR CUT FILE! 
+   d0Cuts->setCutRequireHFT(true); //BE SURE TO CHANGE IN ANA MAKER IF YOU CHANGE HERE FOR CUT FILE! 
    d0Cuts->setCutVzMax(6.0);
    d0Cuts->setCutVzVpdVzMax(3.0);
-   d0Cuts->setCutPionPtRange(0.15, 20.0);
-   d0Cuts->setCutKaonPtRange(0.15, 20.0);
+   //d0Cuts->setCutPionPtRange(0.15, 20.0);
+   //d0Cuts->setCutKaonPtRange(0.15, 20.0);
    // tracking
-   d0Cuts->setCutNHitsFitMin(20);
-   d0Cuts->setCutNHitsFitnHitsMax(0.52);
-   d0Cuts->setCutPrimaryDCAtoVtxMax(3.0);
+   // d0Cuts->setCutNHitsFitMin(20);
+   // d0Cuts->setCutNHitsFitnHitsMax(0.52);
+   // d0Cuts->setCutPrimaryDCAtoVtxMax(3.0);
    // pions
-   d0Cuts->setCutTPCNSigmaPion(3.0);
+   d0Cuts->setCutTPCNSigmaPion(2.0);
+   d0Cuts->setCutTOFDeltaOneOverBetaPion(.02);
 
    // kaons
    d0Cuts->setCutTPCNSigmaKaon(2.0);
+   d0Cuts->setCutTOFDeltaOneOverBetaKaon(.02);
+
 
    // kaonPion pair cuts
-   float dcaDaughtersMax = 0.0065;  // maximum
-   float decayLengthMin  = 0.008; // minimum
+   float dcaDaughtersMax = 0.0100;  // maximum
+   float decayLengthMin  = 0.000; // minimum
+   float decayLengthMax  = 999999; //std::numeric_limits<float>::max();
+   float cosThetaMin     = 0.00000;   // minimum
+   float minMass         = 1.6;
+   float maxMass         = 2.1;
+
+   /*float dcaDaughtersMax = 1.0;  // maximum
+   float decayLengthMin  = 0.0; // minimum
    float decayLengthMax  = 999999; //std::numeric_limits<float>::max();
    float cosThetaMin     = 0.855555;   // minimum
    float minMass         = 1.6;
-   float maxMass         = 2.1;
+   float maxMass         = 2.1;*/
+   
    d0Cuts->setCutSecondaryPair(dcaDaughtersMax, decayLengthMin, decayLengthMax, cosThetaMin, minMass, maxMass);
    
    chain->Init();
@@ -109,7 +122,7 @@ void runPicoD0AnaMaker(TString d0list, TString outFileName, TString badRunListFi
    int per = 0;
    int nEntries = picoD0AnaMaker->getEntries();
 
-   //int nEntries = 50000;
+   //int nEntries = 20000;
    for (int iEvent = 0; iEvent < nEntries; ++iEvent)
    {
       

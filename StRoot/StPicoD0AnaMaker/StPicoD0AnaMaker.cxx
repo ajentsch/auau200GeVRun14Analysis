@@ -7,6 +7,7 @@
 #include "TClonesArray.h"
 #include "TTree.h"
 #include "TNtuple.h"
+#include "TF1.h"
 
 #include "StPicoDstMaker/StPicoDstMaker.h"
 #include "StPicoDstMaker/StPicoDst.h"
@@ -24,50 +25,13 @@
 #include "StPicoHFMaker/StHFCuts.h"
 
 
-/****
+/***********************************************************************
 
 Author: Alex Jentsch
 
-Current version of AnaMaker (by date): 2/22/2016
+Most recent update: 5/29/2017
 
-Description of current functionality:
-
-1. Can read in both Trees and PicoDst -> Stores all basic QA info for PicoDsts
-2. Can make invMass Histos for various pt bins
-3. Can produce sibling histograms for various pt bins
-
-
-Still Needs:
-
-1. Various BG production methods (side band, mixing, etc.)
-
-
-Update (3/10/2016)
-
-Currently adding event mixing to code. Using the StPicoMixedEventMaker as a baseline, but changing its implementation significantly.
-I want to be able to handle all of the mixing in my AnaMaker with all of the mixing functions being used as if from any other normal class.
-
-
-Update (3/31/2016)
-
-Buffering code built and seems to function. Lots of testing left to do. Need to make sure the stored event information can be retrieved 
-and can be binned into histograms.
-
-
-Update (4/19/2016)
-
-Event mixing is working and the buffering is not causing any problems. May be changing the event mixing algorithm to better the statistics.
-
-Update (6/3/2016)
-
-Code is fully functional for both non-identified and D0-Hadron correlations. Still working on getting all of the cuts right.
-Code has been updated for the new code structure with the updated production.
-
-Update (6/28/2016)
-
-Hadron-Hadron Correlation code has been removed from this version. The event mixer has been simplified and completely redone. Lots of variables were renamed.
-
-****/
+************************************************************************/
 
 ClassImp(StPicoD0AnaMaker)
 
@@ -112,36 +76,47 @@ Int_t StPicoD0AnaMaker::Init()
    
    
    //-----------------------FLAGS--------------------------------//
-   DEBUG               = false;
+   DEBUG               = true;
    DEBUG_MIX_BUFFER    = false;
    USE_CENT_BINS       = true;
    USE_VZ_BINS         = true;
    USE_PT_BINS         = true;
+   USE_FINE_PT_BINS    = false;
    SINGLES_DISTS       = false;
    D0_HADRON_CORR      = true;
    EVENT_MIXING        = true;
+   
+   
+   USE_TOF             = false;   //USE OF TOF CUTS???
+   USE_TOF_HYBRID      = true;
+   USE_DOUBLE_MIS_PID_PROTECTION = false;
+   
+   USE_PAIR_WISE_PT_CUT = false;
    //----------------------------------------------------------//
    
    //---------------------Important constants-----------------//
-   BUFFER_SIZE   = 5;
-   NUM_PHI_BINS  = 12;
-   NUM_ETA_BINS  = 9;
-   NUM_VZ_BINS   = 10;
-   NUM_CENT_BINS = 16; 
-   NUM_PT_BINS   = 3;
+   BUFFER_SIZE        = 5;
+   NUM_PHI_BINS       = 12;
+   NUM_ETA_BINS       = 9;
+   NUM_VZ_BINS        = 10;
+   NUM_CENT_BINS      = 16; 
+   NUM_PT_BINS        = 5;
+   NUM_D0_CUT_PT_BINS = 6;
+   phiBinShift   = (TMath::Pi()/12.0);  //This number shifts the phi bins to ensure that 0 and pi are at the center of a bin
    
-   
-   // --------------------Event Mixer Buffer-------------------------------------
-   
+   //----------------------------------------------------------------------------
+   //--------------------Event Mixer Buffer-------------------------------------
+   //----------------------------------------------------------------------------
+    
     if(USE_VZ_BINS) { nVzBins = NUM_VZ_BINS; }  //flag to set binning on Vz
     else nVzBins = 1;
     
     if(USE_CENT_BINS) { nCentBins = NUM_CENT_BINS; }
     else nCentBins = 1;
     
-    //********************D0_Hadron section************************//
     
-    if(D0_HADRON_CORR){
+    
+    //if(D0_HADRON_CORR){
     
         for(int i = 0; i < nCentBins; i++){
             for( int j = 0; j < nVzBins; j++){
@@ -151,9 +126,9 @@ Int_t StPicoD0AnaMaker::Init()
                 eventBufferPicoEvent[j][i]->setBufferCounter(0);
             }
         }
-    }        
+    //}        
    
-    if(D0_HADRON_CORR){
+    //if(D0_HADRON_CORR){
    
         for(int i = 0; i < nCentBins; i++){
             for( int j = 0; j < nVzBins; j++){
@@ -163,41 +138,278 @@ Int_t StPicoD0AnaMaker::Init()
                 eventBufferD0Candidate[j][i]->setBufferCounter(0);
             }
         }
-    }       
+    //}       
    
+   
+    //------------------------------------------------------------------   
     //--------------------CUTS------------------------------------------
-   
+    //------------------------------------------------------------------
+    
     // D0 Cuts
    
-    kaonPtCut           = .15;  //daughter pt cut
-    pionPtCut           = .15;  //daughter pt cut
+    kaonPtCut           = .15;  //daughter low pt acceptance cut
+    pionPtCut           = .15;  //daughter low pt acceptance cut
     
     D0InvMassLow        = 1.82; //signal region US invariant mass
     D0InvMassHigh       = 1.90; //signal region US invariant mass
     
-    USSideBandLeftLow   = 1.62;
-    USSideBandLeftHigh  = 1.70;
-    USSideBandRightLow  = 2.0;
-    USSideBandRightHigh = 2.1;
+    USSideBandLeftLow   = 1.70;  //1.62
+    USSideBandLeftHigh  = 1.80;  //1.7
+    USSideBandRightLow  = 1.92;   //2.0
+    USSideBandRightHigh = 2.1;   //2.1
     
-    d0PtLow             = 0.0;
-    d0PtHigh            = 20.0;
-    d0DecayLengthMin    = .0220;
+    d0PtLow             = 0.0;    //nominal cuts
+    d0PtHigh            = 10.0;
     d0DecayLengthMax    = 999999.0;
-    daughterDCA         = .0055;
+    
     d0DaughterPionPtMin = .15;
     d0DaughterKaonPtMin = .15;
-    kaonDCA             = .008;
-    pionDCA             = .008;
-    d0DCAtoPV           = .0065;
     
-    //hadron cuts
+    //Old Average Cuts -- good
+    //daughterDCA         = .0055;
+    //d0DecayLengthMin    = .0180;
+    //kaonDCA             = .008;
+    //pionDCA             = .008;
+    //d0DCAtoPV           = .0065;
+    
+    
+    //d0TopologicalCutArray[5][5]; //first index is pt bin, second index is cuts -- decayLength, DCADaughters, d0DCAPV, PiDCAPV, KDCAPV
+    
+	//CUT SET 1 -- optimized except DCA daughters
+	
+	/*//pt = 0-1 GeV/c
+    d0TopologicalCutArray[0][0] = .0145; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0084; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0061; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .008;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .008;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0181; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0066; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0049; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0212; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0057; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0050; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0259; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0060; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0040; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .008; //minimum DCA between K and PV*/
+	
+   //CUT SET 2 -- OPTIMIZED HF GROUP V2 CUTS	
+	
+    //pt = 0-1 GeV/c
+    d0TopologicalCutArray[0][0] = .0145; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0084; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0061; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .0110;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .0103;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0181; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0066; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0049; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .0111; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .0091; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0212; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0057; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .0086; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .0095; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0247; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0050; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .0081; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .0079; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0259; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0060; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0040; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .0062; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .0058; //minimum DCA between K and PV 
+    
+	//CUT SET 4 -- ****TIGHT***   OPTIMIZED HF GROUP V2 CUTS  ***TIGHT*****	
+	
+   /*//pt = 0-1 GeV/c
+    d0TopologicalCutArray[0][0] = .0144; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0069; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0044; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .0120;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .0119;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0204; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0048; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0036; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .0102; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .0110; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0242; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0044; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0031; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .0118; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .0109; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0245; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0049; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0026; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .0109; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .0106; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0300; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0047; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0032; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .0096; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .0080; //minimum DCA between K and PV */
+    
+	
+    //CUT SET 3 -- Quark Matter Cuts	
+   	
+   /*//pt = 0-1 GeV/c
+    d0TopologicalCutArray[0][0] = .0220; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0055; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0065; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .008;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .008;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0055; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0055; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0055; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0055; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .008; //minimum DCA between K and PV*/
+    
+    //CUT SET 3 -- OPTIMIZED CUTS FOR ALL BUT DAUGHTER DCA -- 80um
+    
+    //pt = 0-1 GeV/c
+    /*d0TopologicalCutArray[0][0] = .0141; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0084; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0061; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .008;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .008;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0165; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0066; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0049; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0212; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0057; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0052; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0240; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0060; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0040; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .008; //minimum DCA between K and PV*/
+    
+    //CUT SET 3 -- OPTIMIZED CUTS FOR ALL BUT DAUGHTER DCA -- 80um
+    
+    //pt = 0-1 GeV/c
+    /*d0TopologicalCutArray[0][0] = .0141; //.0180;//minimum decay length 
+    d0TopologicalCutArray[0][1] = .0084; //maximum DCA daughters 
+    d0TopologicalCutArray[0][2] = .0061; //.0065; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[0][3] = .008;  //.008; //minimum DCA between Pi and PV 
+    d0TopologicalCutArray[0][4] = .008;  //.008; //minimum DCA between K and PV
+    
+    //pt = 1-2 GeV/c
+    d0TopologicalCutArray[1][0] = .0165; //minimum decay length
+    d0TopologicalCutArray[1][1] = .0066; //maximum DCA daughters
+    d0TopologicalCutArray[1][2] = .0049; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[1][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[1][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 2-3 GeV/c
+    d0TopologicalCutArray[2][0] = .0212; //minimum decay length
+    d0TopologicalCutArray[2][1] = .0057; //maximum DCA daughters
+    d0TopologicalCutArray[2][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[2][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[2][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 3-5 GeV/c
+    d0TopologicalCutArray[3][0] = .0220; //minimum decay length
+    d0TopologicalCutArray[3][1] = .0052; //maximum DCA daughters
+    d0TopologicalCutArray[3][2] = .0038; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[3][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[3][4] = .008; //minimum DCA between K and PV
+    
+    //pt = 5-10 GeV/c
+    d0TopologicalCutArray[4][0] = .0240; //minimum decay length
+    d0TopologicalCutArray[4][1] = .0060; //maximum DCA daughters
+    d0TopologicalCutArray[4][2] = .0040; //maximum DCA between d0 vector and PV 
+    d0TopologicalCutArray[4][3] = .008; //minimum DCA between Pi and PV
+    d0TopologicalCutArray[4][4] = .008; //minimum DCA between K and PV*/
+    
+    
+    
+    
+    //Associated Hadron Cuts
     
     hadronPtMin         = .15;
     hadronPtMax         = 15.45;
     
     trackChi2max        = 3.0;
     trackDCAtoPvtx      = 3.0;
+    nHitsFitMin         = 20;
+    nHitsFitMinOverMax  = .52;
     
 	//Run 14 MinBias triggers
     trigger[0] = 450050;
@@ -220,6 +432,9 @@ Int_t StPicoD0AnaMaker::Init()
     
     //other labels
    
+    TString siblingLabel      = "Sibling_";
+    TString mixLabel          = "Mixed_";
+   
     TString eventCounterLabel = "Event Count Vz ";
     TString etaLabel          = "Inclusive Hadron Eta";
     TString phiLabel          = "Inclusive Hadron Phi";
@@ -230,9 +445,39 @@ Int_t StPicoD0AnaMaker::Init()
     TString phiD0vsEtaD0Label = "phiD0_vs_etaD0";
     TString phiHvsEtaHLabel   = "phiH_vs_etaH";
     
+    TString bandLabels[4] = {"_SBL_", "_US_Signal_Region_", "_SBR_", "_LS_"};
+    
+	TString D0ptLabel[3]          = {"SBL_Candidate_Pt_Dist", "D0_Candidate_Pt_Dist", "SBR_Candidate_Pt_Dist"};
+    TString D0EtaLabel[3]         = {"SBL_Eta_Dist", "D0_Eta_Dist", "SBR_Eta_Dist"};
+    TString D0PhiLabel[3]         = {"SBL_Phi_Dist", "D0_Phi_Dist", "SBR_Phi_Dist"};
+    TString D0KaonPtLabel[3]      = {"SBL_Kaon_Candidate_Pt_Dist", "D0_Kaon_Candidate_Pt_Dist", "SBR_Kaon_Candidate_Pt_Dist"};
+    TString D0KaonEtaLabel[3]     = {"SBL_Kaon_Eta_Dist", "D0_Kaon_Eta_Dist", "SBR_Kaon_Eta_Dist"};
+    TString D0KaonPhiLabel[3]     = {"SBL_Kaon_Phi_Dist", "D0_Kaon_Phi_Dist", "SBR_Kaon_Phi_Dist"};
+    TString D0PionPtLabel[3]      = {"SBL_Candidate_Pion_Pt_Dist", "D0_Candidate_Pion_Pt_Dist", "SBR_Candidate_Pion_Pt_Dist"};
+    TString D0PionEtaLabel[3]     = {"SBL_Pion_Eta_Dist", "D0_Pion_Eta_Dist", "SBR_Pion_Eta_Dist"};
+    TString D0PionPhiLabel[3]     = {"SBL_Pion_Phi_Dist", "D0_Pion_Phi_Dist", "SBR_Pion_Phi_Dist"};
+    TString D0DecayLengthLabel[3] = {"SBL_Decay_Length", "D0_Decay_Length", "SBR_Decay_Length"};
+    TString D0DCAToPVLabel[3]     = {"SBL_DCA_to_PV", "D0_DCA_to_PV", "SBR_DCA_to_PV"};
+    TString D0KaonPVLabel[3]      = {"SBL_Daughter_Kaon_DCA_to_PV", "D0_Daughter_Kaon_DCA_to_PV", "SBR_Daughter_Kaon_DCA_to_PV"};
+    TString D0PionPVLabel[3]      = {"SBL_Daughter_Pion_DCA_to_PV", "D0_Daughter_Pion_DCA_to_PV", "SBR_Daughter_Pion_DCA_to_PV"};
+    TString D0DaughterDCALabel[3] = {"SBL_Daughter_Pair_DCA", "D0_Daughter_Pair_DCA", "SBR_Daughter_Pair_DCA"};
+    
+    TString D0PtKaonVsPtPionLabel[3] = {"SBL_Daughter_Kaon_Pt_vs_Pion_Pt","D0_Daughter_Kaon_Pt_vs_Pion_Pt","SBR_Daughter_Kaon_Pt_vs_Pion_Pt"} ;
+    TString D0PKaonVsPPionLabel[3] = {"SBL_Daughter_Kaon_P_vs_Pion_P", "D0_Daughter_Kaon_P_vs_Pion_P", "SBR_Daughter_Kaon_P_vs_Pion_P"};
+    TString D0RawEtaVsRawPhiLabel[3] = {"SBL_Raw_delEta_Vs_delPhi", "D0_Raw_delEta_Vs_delPhi", "SBR_Raw_delEta_Vs_delPhi"};
+    
+    TString D0RawEtaVsRawPhiLeftPtBlobLabel[3] = {"SBL_Raw_delEta_Vs_delPhi_LeftPtBlob", "D0_Raw_delEta_Vs_delPhi_LeftPtBlob", "SBR_Raw_delEta_Vs_delPhi_LeftPtBlob"};
+    TString D0RawEtaVsRawPhiRightPtBlobLabel[3] = {"SBL_Raw_delEta_Vs_delPhi_RightPtBlob", "D0_Raw_delEta_Vs_delPhi_RightPtBlob", "SBR_Raw_delEta_Vs_delPhi_RightPtBlob"};
+    
+   // TString D0CutPtBinsLabel[5] = {"0-1", "1-2", "2-3", "3-5", "5-10"};
+    
+    TString D0CutPtBinsLabel[6] = {"0-1", "1-2", "2-3", "3-5", "5-10", "Integrated"};
+    //TString D0CutPtBinsLabel[5] = {"0-2", "2-3", "3-5", "5-10", "Integrated"};
     
     TString invMassD0PtBin    = "D0_US_invMass_Pt_Bin_";
     TString invMassLSPtBin    = "LS_invMass_Pt_Bin_";
+    
+    TString fine = "FINE_";
     
     TString str1;
     TString str2;
@@ -242,6 +487,7 @@ Int_t StPicoD0AnaMaker::Init()
     TString binLabelVz[10]             = {"0", "1", "2", "3", "4", "5", "6", "7", "8","9"};
     TString binLabelCent[16]           = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"};
     TString binLabelPt[6]              = {"0", "1", "2", "3", "4", "5"};
+    TString binLabelFinePt[11]         = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
     TString binLabelCentralityClass[3] = {"_Peripheral", "_MidCentral", "_Central"};
    
    // --------------------Begin User Variables-----------------------------------
@@ -272,6 +518,20 @@ Int_t StPicoD0AnaMaker::Init()
         }
     }        
    
+   //Fine pt binning
+   if(USE_FINE_PT_BINS){
+        for(int k = 0; k < 11; k++){
+            for(int i = 0; i < 3; i++){
+        
+                str1 =  fine + invMassD0PtBin + binLabelFinePt[k] + binLabelCentralityClass[i];       
+                D0InvMassFinePtBin[k][i] = new TH1D(str1, str1, 50, 1.6, 2.1);
+                str1 =  fine + invMassLSPtBin + binLabelFinePt[k] + binLabelCentralityClass[i];       
+                LSInvMassFinePtBin[k][i] = new TH1D(str1, str1, 50, 1.6, 2.1);
+            }
+            
+        }
+   }       
+   
    
    if(D0_HADRON_CORR){//begin D0-Hadron Correlation Histograms
         for(int band = 0; band < 4; band++){
@@ -281,12 +541,11 @@ Int_t StPicoD0AnaMaker::Init()
                     str1 = SibCorrLabels[band] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                     str2 = MixCorrLabels[band] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                 
-                    //sibCorrBin[band][i][j]             = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
-                    //mixCorrBin[band][i][j]             = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
-                    
-                    sibCorrBin[band][i][j]             = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-                    mixCorrBin[band][i][j]             = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-               
+                    sibCorrBin[band][i][j]             = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+phiBinShift, (3*TMath::PiOver2())+phiBinShift);
+                    mixCorrBin[band][i][j]             = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+phiBinShift, (3*TMath::PiOver2())+phiBinShift);
+                   
+                    sibCorrBin[band][i][j]->Sumw2();
+                    mixCorrBin[band][i][j]->Sumw2();
                 }
             }
         } 
@@ -302,80 +561,191 @@ Int_t StPicoD0AnaMaker::Init()
                         str1 = SibCorrLabels[band] + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                         str2 = MixCorrLabels[band] + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
                     
-                        //sibCorrBinPt[band][k][i][j] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
-                        //mixCorrBinPt[band][k][i][j] = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+(TMath::Pi()/12.0), (3*TMath::PiOver2())+(TMath::Pi()/12.0));
+                        sibCorrBinPt[band][k][i][j] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+phiBinShift, (3*TMath::PiOver2())+phiBinShift);
+                        mixCorrBinPt[band][k][i][j] = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2()+phiBinShift, (3*TMath::PiOver2())+phiBinShift);
                         
-                        sibCorrBinPt[band][k][i][j] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-                        mixCorrBinPt[band][k][i][j] = new TH2D(str2, str2, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-                    
+                        sibCorrBinPt[band][k][i][j]->Sumw2();
+                        mixCorrBinPt[band][k][i][j]->Sumw2();
                     }
                 }            
             }
         }    
     }//end D0-Hadron Correlation Histograms -- USE PT BINS HERE    
    
-    /*if(USE_VZ_BINS){
-        for(int i = 0; i < nVzBins; i++){ 
+    for(int band = 0; band < NUM_D0_CUT_PT_BINS; band++){
+		for(int i = 0; i < 3; i++){
+        
+		    str1 = D0ptLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0ptDist[i][band]       = new TH1D(str1, str1, 250, 0, 10);
+			str1 = D0EtaLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0EtaDist[i][band]       = new TH1D(str1, str1, 250, -1, 1);
+			str1 = D0PhiLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0PhiDist[i][band]       = new TH1D(str1, str1, 250, -2*TMath::Pi(), 2*TMath::Pi());
+			str1 = D0KaonPtLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0KaonPtDist[i][band]    = new TH1D(str1, str1, 250, 0, 10);
+			str1 = D0KaonEtaLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0KaonEtaDist[i][band]   = new TH1D(str1, str1, 250, -1, 1);
+			str1 = D0KaonPhiLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0KaonPhiDist[i][band]   = new TH1D(str1, str1, 250, -2*TMath::Pi(), 2*TMath::Pi());
+			str1 = D0PionPtLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0PionPtDist[i][band]    = new TH1D(str1, str1, 250, 0, 10);
+			str1 = D0PionEtaLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0PionEtaDist[i][band]   = new TH1D(str1, str1, 250, -1, 1);
+			str1 = D0PionPhiLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0PionPhiDist[i][band]   = new TH1D(str1, str1, 250, -2*TMath::Pi(), 2*TMath::Pi());
+			
+			str1 = D0DecayLengthLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0DecayLengthDist[i][band]       = new TH1D(str1, str1, 250, 0, .4);
+			str1 = D0DCAToPVLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0DCAToPVDist[i][band]       = new TH1D(str1, str1, 500, 0, .02);
+			str1 = D0KaonPVLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0KaonPVDist[i][band]    = new TH1D(str1, str1, 500, 0, .1);
+			str1 = D0PionPVLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0PionPVDist[i][band]   = new TH1D(str1, str1, 500, 0, .1);
+			str1 = D0DaughterDCALabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+			D0DaughterDCADist[i][band]   = new TH1D(str1, str1, 500, 0, .02);
+			
+			str1 = D0PtKaonVsPtPionLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+            D0PtKaonVsPtPion[i][band] = new TH2D(str1, str1, 250, 0, 6, 250, 0, 6);
+            str1 = D0PKaonVsPPionLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+            D0PKaonVsPPion[i][band] = new TH2D(str1, str1, 250, 0, 6, 250, 0, 6);
+            str1 = D0RawEtaVsRawPhiLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+            D0RawEtaVsRawPhi[i][band] = new TH2D(str1, str1, 250, 0, 2, 250, 0, TMath::Pi());
             
-            str1 = phiLabel + VzBinLabel + binLabelVz[i];
-            str2 = etaLabel + VzBinLabel + binLabelVz[i];
-            str3 = etaPhiLabel + VzBinLabel + binLabelVz[i];
-            phiDistVz[i]    = new TH1D(str1, str1, 48, -TMath::Pi(), TMath::Pi());
-            etaDistVz[i]    = new TH1D(str2, str2, 50, -1, 1);
-            etaPhiDistVz[i] = new TH2D(str3, str3, 25, -1, 1, 24, -TMath::Pi(), TMath::Pi());
-            etaPhiDistVz[i]->GetXaxis()->SetTitle("#eta");
-            etaPhiDistVz[i]->GetYaxis()->SetTitle("#phi");
-        }    
-    }*/
- 
+            str1 = D0RawEtaVsRawPhiLeftPtBlobLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+            D0RawEtaVsRawPhiLeftPtBlob[i][band] = new TH2D(str1, str1, 250, 0, 2, 250, 0, TMath::Pi());
+            str1 = D0RawEtaVsRawPhiRightPtBlobLabel[i] + PtBinLabel + D0CutPtBinsLabel[band];
+            D0RawEtaVsRawPhiRightPtBlob[i][band] = new TH2D(str1, str1, 250, 0, 2, 250, 0, TMath::Pi());
+        }
+   }
    
-   //QA Histograms
-   eventCounter    = new TH1I("number of events used", "number of events used", 6, 0, 6);
-   trackCounter    = new TH1I("number of tracks per event", "number of tracks per event", 1500, 0, 1499);
-   usedTracks      = new TH1I("Used tracks", "Used tracks", 1500, 0, 1499);
-   kaonEtaDist     = new TH1D("Kaon Eta Distribution", "Kaon Eta Distribution", 250, -1, 1);
-   pionEtaDist     = new TH1D("Pion Eta Distribution", "Pion Eta Distribution", 250, -1, 1);
-   kaonPhiDist     = new TH1D("Kaon Phi Distribution", "Kaon Phi Distribution", 250, -2*TMath::Pi(), 2*TMath::Pi());
-   pionPhiDist     = new TH1D("Pion Phi Distribution", "Pion Phi Distribution", 250, -2*TMath::Pi(), 2*TMath::Pi());
-   DCAtoPrimaryVertex    = new TH1D("track DCA to PV", "track DCA to PV", 500, 0.0, 10.0);
-   DCAtoPrimaryVertexCut = new TH1D("track DCA to PV cut check", "track DCA to PV cut check", 500, 0.0, 10.0);
-   hadronPtDist    = new TH1D("Inclusive Hadron pt", "Inclusive Hadron pt", 250, 0, 10);
-   hadronPhiDist   = new TH1D("Inclusive Hadron Phi", "Inclusive Hadron Phi", 250, -TMath::Pi(), TMath::Pi());
-   hadronEtaDist   = new TH1D("Inclusvie Hadron Eta", "Inclusive Hadron Eta", 250, -1, 1);
-   hadronChi2      = new TH1D("Chi2 for hadron tracks", "Chi2 for hadron tracks", 500, 0, 10);
-   pVtxX           = new TH1D("X position of pVtx", "X position of pVtx", 500, -10, 10);
-   pVtxY           = new TH1D("Y position of pVtx", "Y position of pVtx", 500, -10, 10);
-   pVtxZ           = new TH1D("Z position of pVtx", "Z position of pVtx", 500, -7, 7);
-   dEdxVsPt        = new TH2D("dEdx_vs_P", "dEdx_vs_P", 250, 0, 10, 250, 0, 10);
-   invBetaVsPt     = new TH2D("#Beta^{-1} Vs. P", "#Beta^{-1} Vs. P", 250, 0, 10, 250, 0, 4);
-   vZandCentBinPerEvent = new TH2I("event counts per Vz/Cent bin", "event counts per Vz/Cent bin", 16, 0, 16, 10, 0, 10);
+    
+   //Event QA Histograms
+   
+   eventCounter         = new TH1I("number_of_events_used", "number of events used", 6, 0, 6);
+   trackCounter         = new TH1I("number_of_tracks_per_event", "number of tracks per event", 1500, 0, 1499);
+   usedTracks           = new TH1I("Used_tracks", "Used tracks", 1500, 0, 1499);
+   pVtxX                = new TH1D("X_position_of_pVtx", "X position of pVtx", 500, -10, 10);
+   pVtxY                = new TH1D("Y_position_of_pVtx", "Y position of pVtx", 500, -10, 10);
+   pVtxZ                = new TH1D("Z_position_of_pVtx", "Z position of pVtx", 500, -7, 7);
+   vZandCentBinPerEvent = new TH2D("event_counts_per_Vz_Cent_bin", "event counts per Vz/Cent bin", 16, 0, 16, 10, 0, 10);
    vZandCentBinPerEvent->GetXaxis()->SetTitle("Centrality Bin");
    vZandCentBinPerEvent->GetYaxis()->SetTitle("Vz Bin");
-   //QA for mass-cut D0  
-   D0ptDist        = new TH1D("D0 Candidate pt Dist (mass cut)", "D0 Candidate pt Dist (mass cut)", 250, 0, 10);
-   D0EtaDist       = new TH1D("D0 Eta Dist", "D0 #eta Dist. (mass cut)", 250, -1, 1);
-   D0PhiDist       = new TH1D("D0 Phi Dist", "D0 #phi Dist. (mass cut)", 250, -2*TMath::Pi(), 2*TMath::Pi());
-   d0CountPerEvent = new TH1I("number of D0 candidates per event", "number of D0 candidates per event", 50, 0, 50);
-   histOfCuts      = new TH1D("HistOfCuts", "HistOfCuts", 30, 1, 30); 
+   
+   
+   //Track QA Histograms
+   kaonEtaDist           = new TH1D("Kaon_Eta_Distribution", "Kaon Eta Distribution", 250, -1, 1);
+   pionEtaDist           = new TH1D("Pion_Eta_Distribution", "Pion Eta Distribution", 250, -1, 1);
+   kaonPhiDist           = new TH1D("Kaon_Phi_Distribution", "Kaon Phi Distribution", 250, -2*TMath::Pi(), 2*TMath::Pi());
+   pionPhiDist           = new TH1D("Pion_Phi_Distribution", "Pion Phi Distribution", 250, -2*TMath::Pi(), 2*TMath::Pi());
+   DCAtoPrimaryVertex    = new TH1D("track_DCA_to_PV", "track DCA to PV", 500, 0.0, 10.0);
+   DCAtoPrimaryVertexCut = new TH1D("track_DCA_to_PV_cut_check", "track DCA to PV cut check", 500, 0.0, 10.0);
+   hadronPtDist          = new TH1D("Inclusive_Hadron_pt", "Inclusive Hadron pt", 250, 0, 10);
+   hadronPhiDist         = new TH1D("Inclusive_Hadron_Phi", "Inclusive Hadron Phi", 250, -TMath::Pi(), TMath::Pi());
+   hadronEtaDist         = new TH1D("Inclusive_Hadron_Eta", "Inclusive Hadron Eta", 250, -1, 1);
+   hadronChi2            = new TH1D("Chi2_for_hadron_tracks", "Chi2 for hadron tracks", 500, 0, 10);
+   hadronNHitsFit        = new TH1D("nHitsFit", "nHitsFit", 60, 0, 60);
+   hadronNHitsFitOverMax = new TH1D("nHitsFitOverMax", "nHitsFitOverMax", 100, 0, 1);
+   dEdxVsPt        = new TH2D("dEdx_vs_P", "dEdx_vs_P", 400, 0, 4, 400, 1.5, 4);
+   invBetaVsPt     = new TH2D("inv_Beta_Vs_P", "#Beta^{-1} Vs. P", 400, 0, 4, 400, 0, 4);
+  
+   d0CountPerEvent = new TH1I("number_of_D0_candidates_per_event", "number of D0 candidates per event", 50, 0, 50);
+   histOfCuts      = new TH1D("HistOfCuts", "HistOfCuts", 55, 1, 55); 
 
+   
+   //----Efficiency Mapping Functions--------------------
+   //-----------------------THIS IS THE VERY PRELIMINARY FUNCTION USED TO WEIGHT THE PAIRS BASED ON HADRON EFFICIENCY
+   effWeightPions  = new TF1("effWeightPions", "[0]*TMath::Exp(-([1]/x)**[2])", 0, 15.45);
+  
+   effWeightPions->SetParameter(0, .809);
+   effWeightPions->SetParameter(1, .109);
+   effWeightPions->SetParameter(2, 3.224);
+   
+   effWeightKaons  = new TF1("effWeightKaons", "[0]*TMath::Exp(-([1]/x)**[2]) + [3]*x", 0, 15.45);
+  
+   effWeightKaons->SetParameter(0, .503);
+   effWeightKaons->SetParameter(1, .231);
+   effWeightKaons->SetParameter(2, 3.968);
+   effWeightKaons->SetParameter(3, .152);
+   
+   /*effWeightD0     = new TF1("effWeightPD0", "TMath::Exp([0]*([1]-[2]*TMath::Exp(-x/[3])))", 0, 20); 
+   effWeightD0->SetParameter(0, 2.30259);
+   effWeightD0->SetParameter(1, -1.306);
+   effWeightD0->SetParameter(2, 1.9760001);
+   effWeightD0->SetParameter(3, 3.3699999);*/ //old efficiency correction as of 6/9/2017, fails at lowest pt
+   
+   
+   effWeightD0[0] = new TF1("effWeightPD0Per","pol4", .5, 10); //Using this to correct efficiency at low pt 6/9/2017
+   effWeightD0[1] = new TF1("effWeightPD0Mid","pol4", .5, 10); //Using this to correct efficiency at low pt 6/9/2017
+   effWeightD0[2] = new TF1("effWeightPD0Cent","pol4", .5, 10); //Using this to correct efficiency at low pt 6/9/2017
+   
+   effWeightD0[0]->FixParameter(0, 0.002258);
+   effWeightD0[0]->FixParameter(1, -0.000672);
+   effWeightD0[0]->FixParameter(2, 0.000689);
+   effWeightD0[0]->FixParameter(3, 0.00003547);
+   effWeightD0[0]->FixParameter(4, -0.00000714933);
+    
+   effWeightD0[1]->FixParameter(0, 0.004414);
+   effWeightD0[1]->FixParameter(1, -0.007136);
+   effWeightD0[1]->FixParameter(2, 0.003958);
+   effWeightD0[1]->FixParameter(3, -0.000377);
+   effWeightD0[1]->FixParameter(4, 0.00000954214);
+    
+   effWeightD0[2]->FixParameter(0, 0.001541);
+   effWeightD0[2]->FixParameter(1, -0.000731);
+   effWeightD0[2]->FixParameter(2, 0.000957);
+   effWeightD0[2]->FixParameter(3, -0.00003644);
+   effWeightD0[2]->FixParameter(4, -0.0000022057);   
+   
+   
+   //levy = new TF1("Levy", "((x*x)/(TMath::Sqrt((x*x)+(1.86*1.86))))*([0]/((1+((TMath::Sqrt((x*x)+(1.86*1.86))-1.86)/([1]*[2])))**[1]))", 0, 10);
+   
+   
    //single particle distributions for errors
    if(SINGLES_DISTS){
         for(int i = 0; i < nVzBins; i++){
             for(int j = 0; j < nCentBins; j++){
+                for(int k = 0; k < NUM_PT_BINS; k++){
+                    for(int band = 0; band < 1; band++){
         
-                str1 = phiD0vsPhiHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
-                str2 = etaD0vsEtaHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
-                str3 = phiD0vsEtaD0Label + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
-                str4 = phiHvsEtaHLabel + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
-        
-                phiD0vsPhiH[i][j]     = new TH2D(str1, str1, 24, -TMath::Pi(), TMath::Pi(), 24, -TMath::Pi(), TMath::Pi());  //d0 on y axis, h on x axis     
-                etaD0vsEtaH[i][j]     = new TH2D(str2, str2, 9, -1, 1, 9, -1, 1);  //d0 on y axis, h on x axis
-                phiD0vsEtaD0[i][j]    = new TH2D(str3, str3, 9, -1, 1, 24, -TMath::Pi(), TMath::Pi());
-                phiHvsEtaH[i][j]      = new TH2D(str4, str4, 9, -1, 1, 24, -TMath::Pi(), TMath::Pi());
+                        str1 = siblingLabel + bandLabels[1] +  phiD0vsPhiHLabel  + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str2 = siblingLabel + bandLabels[1] +  etaD0vsEtaHLabel  + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str3 = siblingLabel + bandLabels[1] +  phiD0vsEtaD0Label + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str4 = siblingLabel + bandLabels[1] +  phiHvsEtaHLabel   + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                
+                        phiD0vsPhiH[band][k][i][j]     = new TH2D(str1, str1, 48, -TMath::Pi(), TMath::Pi(), 48, -TMath::Pi(), TMath::Pi());  //d0 on y axis, h on x axis     
+                        etaD0vsEtaH[band][k][i][j]     = new TH2D(str2, str2, 36, -1, 1, 36, -1, 1);  //d0 on y axis, h on x axis
+                        phiD0vsPhiH[band][k][i][j]->GetXaxis()->SetTitle("Associated Hadrons");
+                        phiD0vsPhiH[band][k][i][j]->GetYaxis()->SetTitle("D0 Candidates");
+                        etaD0vsEtaH[band][k][i][j]->GetXaxis()->SetTitle("Associated Hadrons");
+                        etaD0vsEtaH[band][k][i][j]->GetYaxis()->SetTitle("D0 Candidates");
+                        
+                        phiD0vsEtaD0[band][k][i][j]    = new TH2D(str3, str3, 36, -1, 1, 48, -TMath::Pi(), TMath::Pi());
+                        phiHvsEtaH[band][k][i][j]      = new TH2D(str4, str4, 36, -1, 1, 48, -TMath::Pi(), TMath::Pi());
+                        
+                        str1 = mixLabel + bandLabels[1] +  phiD0vsPhiHLabel  + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str2 = mixLabel + bandLabels[1] +  etaD0vsEtaHLabel  + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str3 = mixLabel + bandLabels[1] +  phiD0vsEtaD0Label + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                        str4 = mixLabel + bandLabels[1] +  phiHvsEtaHLabel   + PtBinLabel + binLabelPt[k] + VzBinLabel + binLabelVz[i] + CentBinLabel + binLabelCent[j];
+                
+                        phiD0vsPhiHMixed[band][k][i][j]     = new TH2D(str1, str1, 48, -TMath::Pi(), TMath::Pi(), 48, -TMath::Pi(), TMath::Pi());  //d0 on y axis, h on x axis     
+                        etaD0vsEtaHMixed[band][k][i][j]     = new TH2D(str2, str2, 36, -1, 1, 36, -1, 1);  //d0 on y axis, h on x axis
+                        phiD0vsEtaD0Mixed[band][k][i][j]    = new TH2D(str3, str3, 36, -1, 1, 48, -TMath::Pi(), TMath::Pi());
+                        phiHvsEtaHMixed[band][k][i][j]      = new TH2D(str4, str4, 36, -1, 1, 48, -TMath::Pi(), TMath::Pi());
+                        phiD0vsPhiHMixed[band][k][i][j]->GetXaxis()->SetTitle("Associated Hadrons");
+                        phiD0vsPhiHMixed[band][k][i][j]->GetYaxis()->SetTitle("D0 Candidates");
+                        etaD0vsEtaHMixed[band][k][i][j]->GetXaxis()->SetTitle("Associated Hadrons");
+                        etaD0vsEtaHMixed[band][k][i][j]->GetYaxis()->SetTitle("D0 Candidates");
             
+                    }           
+                }
             }
         }        
    }
+   
+   
+   
+   
    
    //Histogram formatting
 
@@ -397,24 +767,53 @@ Int_t StPicoD0AnaMaker::Init()
     histOfCuts->SetBinContent(6, USSideBandRightHigh); //USSideBandRightHigh
     histOfCuts->SetBinContent(7, d0PtLow); //d0PtLow 
     histOfCuts->SetBinContent(8, d0PtHigh); //d0PtHigh
-    histOfCuts->SetBinContent(9, d0DecayLengthMin); //d0DecayLengthMin
-    histOfCuts->SetBinContent(10, d0DecayLengthMax); //d0DecayLengthMax
-    histOfCuts->SetBinContent(11, daughterDCA); //daughterDCA
-    histOfCuts->SetBinContent(12, d0DaughterPionPtMin); //d0DaughterPionPtMin
-    histOfCuts->SetBinContent(13, d0DaughterKaonPtMin); //d0DaughterKaonPtMin
-    histOfCuts->SetBinContent(14, kaonDCA); //kaonDCA
-    histOfCuts->SetBinContent(15, pionDCA); //pionDCA
-    histOfCuts->SetBinContent(16, d0DCAtoPV); //d0DCAtoPV
-    histOfCuts->SetBinContent(17, hadronPtMin); //hadronPtMin
-    histOfCuts->SetBinContent(18, hadronPtMax); //hadronPtMax
-    histOfCuts->SetBinContent(19, BUFFER_SIZE); //BUFFER_SIZE
-    histOfCuts->SetBinContent(20, NUM_PHI_BINS); //NUM_PHI_BINS
-    histOfCuts->SetBinContent(21, NUM_ETA_BINS); //NUM_ETA_BINS
-    histOfCuts->SetBinContent(22, 0); // Require HFT
-    histOfCuts->SetBinContent(23, trackChi2max); // chi2 cut
-    histOfCuts->SetBinContent(24, trackDCAtoPvtx); // DCA cut
-    histOfCuts->SetBinContent(29, 1); //Scale factor counter to produce text file
+    histOfCuts->SetBinContent(9, d0DaughterPionPtMin); //d0DaughterPionPtMin
+    histOfCuts->SetBinContent(10, d0DaughterKaonPtMin); //d0DaughterKaonPtMin
+    histOfCuts->SetBinContent(11, d0DecayLengthMax); //d0DecayLengthMax
     
+    histOfCuts->SetBinContent(12, d0TopologicalCutArray[0][0]); //d0DecayLengthMin
+    histOfCuts->SetBinContent(13, d0TopologicalCutArray[0][1]); //daughterDCA
+    histOfCuts->SetBinContent(14, d0TopologicalCutArray[0][2]); //d0DCAtoPV
+    histOfCuts->SetBinContent(15, d0TopologicalCutArray[0][3]); //pionDCA
+    histOfCuts->SetBinContent(16, d0TopologicalCutArray[0][4]); //kaonDCA
+    
+    histOfCuts->SetBinContent(17, d0TopologicalCutArray[1][0]); //d0DecayLengthMin
+    histOfCuts->SetBinContent(18, d0TopologicalCutArray[1][1]); //daughterDCA
+    histOfCuts->SetBinContent(19, d0TopologicalCutArray[1][2]); //d0DCAtoPV
+    histOfCuts->SetBinContent(20, d0TopologicalCutArray[1][3]); //pionDCA
+    histOfCuts->SetBinContent(21, d0TopologicalCutArray[1][4]); //kaonDCA
+    
+    histOfCuts->SetBinContent(22, d0TopologicalCutArray[2][0]); //d0DecayLengthMin
+    histOfCuts->SetBinContent(23, d0TopologicalCutArray[2][1]); //daughterDCA
+    histOfCuts->SetBinContent(24, d0TopologicalCutArray[2][2]); //d0DCAtoPV
+    histOfCuts->SetBinContent(25, d0TopologicalCutArray[2][3]); //pionDCA
+    histOfCuts->SetBinContent(26, d0TopologicalCutArray[2][4]); //kaonDCA
+    
+    histOfCuts->SetBinContent(27, d0TopologicalCutArray[3][0]); //d0DecayLengthMin
+    histOfCuts->SetBinContent(28, d0TopologicalCutArray[3][1]); //daughterDCA
+    histOfCuts->SetBinContent(29, d0TopologicalCutArray[3][2]); //d0DCAtoPV
+    histOfCuts->SetBinContent(30, d0TopologicalCutArray[3][3]); //pionDCA
+    histOfCuts->SetBinContent(31, d0TopologicalCutArray[3][4]); //kaonDCA
+    
+    histOfCuts->SetBinContent(32, d0TopologicalCutArray[4][0]); //d0DecayLengthMin
+    histOfCuts->SetBinContent(33, d0TopologicalCutArray[4][1]); //daughterDCA
+    histOfCuts->SetBinContent(34, d0TopologicalCutArray[4][2]); //d0DCAtoPV
+    histOfCuts->SetBinContent(35, d0TopologicalCutArray[4][3]); //pionDCA
+    histOfCuts->SetBinContent(36, d0TopologicalCutArray[4][4]); //kaonDCA
+    
+    
+    histOfCuts->SetBinContent(37, hadronPtMin); //hadronPtMin
+    histOfCuts->SetBinContent(38, hadronPtMax); //hadronPtMax
+    histOfCuts->SetBinContent(39, BUFFER_SIZE); //BUFFER_SIZE
+    histOfCuts->SetBinContent(40, NUM_PHI_BINS); //NUM_PHI_BINS
+    histOfCuts->SetBinContent(41, NUM_ETA_BINS); //NUM_ETA_BINS
+    histOfCuts->SetBinContent(42, 1); // Require HFT
+    histOfCuts->SetBinContent(43, trackChi2max); // chi2 cut
+    histOfCuts->SetBinContent(44, trackDCAtoPvtx); // DCA cut
+    histOfCuts->SetBinContent(49, 1); //Scale factor counter to produce text file
+    histOfCuts->SetBinContent(50, int(USE_TOF)); //USE TOF STRICTLY
+    histOfCuts->SetBinContent(51, int(USE_TOF_HYBRID)); //USE TOF HYBRID
+    histOfCuts->SetBinContent(52, int(USE_DOUBLE_MIS_PID_PROTECTION)); //USE DOUBLE MIS-PID PROTECTION
     
    
    return kStOK;
@@ -431,12 +830,12 @@ StPicoD0AnaMaker::~StPicoD0AnaMaker()
 
 //------------------------------------Finish-----------------------------------
 Int_t StPicoD0AnaMaker::Finish()
-{
-   LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
-   mOutputFile->cd();
-   // save user variables here
+{ 
+    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
+    mOutputFile->cd();
+    // save user variables here
    
-   if(D0_HADRON_CORR){
+    if(D0_HADRON_CORR){
         for(int band = 0; band < 4; band++){
             for(int i = 0; i < nVzBins; i++){
                 for(int j = 0; j < nCentBins; j++){
@@ -453,20 +852,16 @@ Int_t StPicoD0AnaMaker::Finish()
             }
         }
     }        
-    if(D0_HADRON_CORR){
-        for(int i = 0; i < nVzBins; i++){
-            for(int j = 0; j < nCentBins; j++){
-                cout << "deleting buffer[" << i << "][" << j << "]" << endl;
-                delete eventBufferPicoEvent[i][j];
-                delete eventBufferD0Candidate[i][j];
-            }
+    
+    for(int i = 0; i < nVzBins; i++){
+        for(int j = 0; j < nCentBins; j++){
+            cout << "deleting buffer[" << i << "][" << j << "]" << endl;
+            delete eventBufferPicoEvent[i][j];
+            delete eventBufferD0Candidate[i][j];
         }
     }
-    
-    
 
-
-   if(USE_PT_BINS){
+    if(USE_PT_BINS){
         for(int k = 0; k < NUM_PT_BINS; k++){
             for(int i = 0; i < 3; i++){
             
@@ -474,16 +869,35 @@ Int_t StPicoD0AnaMaker::Finish()
                 LSInvMassPtBin[k][i]->Write();
             }
         }
-   }        
+    }        
+    
+    if(USE_FINE_PT_BINS){
+        for(int k = 0; k < 11; k++){
+            for(int i = 0; i < 3; i++){
+            
+                D0InvMassFinePtBin[k][i]->Write();
+                LSInvMassFinePtBin[k][i]->Write();
+            }
+        }
+   }
     
    if(SINGLES_DISTS){    
         for(int i = 0; i < nVzBins; i++){
             for(int j = 0; j < nCentBins ; j++){
-  
-                phiD0vsPhiH[i][j]->Write();  
-                etaD0vsEtaH[i][j]->Write();
-                phiD0vsEtaD0[i][j]->Write();
-                phiHvsEtaH[i][j]->Write();
+                for(int k = 0; k < NUM_PT_BINS; k++){
+                    for(int band = 0; band < 1; band++){ 
+                
+                        phiD0vsPhiH[band][k][i][j]->Write();  
+                        etaD0vsEtaH[band][k][i][j]->Write();
+                        phiD0vsEtaD0[band][k][i][j]->Write();
+                        phiHvsEtaH[band][k][i][j]->Write();
+                        phiD0vsPhiHMixed[band][k][i][j]->Write();  
+                        etaD0vsEtaHMixed[band][k][i][j]->Write();
+                        phiD0vsEtaD0Mixed[band][k][i][j]->Write();
+                        phiHvsEtaHMixed[band][k][i][j]->Write();
+                    
+                    }                    
+                }
             }
         }
    }        
@@ -497,35 +911,61 @@ Int_t StPicoD0AnaMaker::Finish()
    likeSignBGMidCent->Write();
    likeSignBGCent->Write();
    
-   D0EtaDist->Write();
-   D0PhiDist->Write();
-   D0ptDist->Write(); 
-   eventCounter->Write();
-   kaonEtaDist->Write();
-   pionEtaDist->Write();
-   kaonPhiDist->Write();
-   pionPhiDist->Write();
-   hadronPtDist->Write();
-   hadronPhiDist->Write();
-   hadronEtaDist->Write();
-   trackCounter->Write();
-   dEdxVsPt->Write();
-   invBetaVsPt->Write();
-   DCAtoPrimaryVertex->Write();
-   DCAtoPrimaryVertexCut->Write();
-   d0CountPerEvent->Write();
-   vZandCentBinPerEvent->Write();
-   usedTracks->Write();
-   histOfCuts->Write();
-   pVtxX->Write();
-   pVtxY->Write();
-   pVtxZ->Write();
-   hadronChi2->Write();
+   //D0ptDist->Write();
    
-   mOutputFile->Close();
+   for(int band = 0; band < NUM_D0_CUT_PT_BINS; band++){
+		for(int i = 0; i < 3; i++){
+			
+			D0ptDist[i][band]->Write();
+			D0EtaDist[i][band]->Write();
+			D0PhiDist[i][band]->Write();
+			D0KaonPtDist[i][band]->Write();
+			D0KaonEtaDist[i][band]->Write(); 
+			D0KaonPhiDist[i][band]->Write(); 
+			D0PionPtDist[i][band]->Write();
+			D0PionEtaDist[i][band]->Write(); 
+			D0PionPhiDist[i][band]->Write(); 
+			D0DecayLengthDist[i][band]->Write();
+			D0DCAToPVDist[i][band]->Write();
+			D0KaonPVDist[i][band]->Write();
+			D0PionPVDist[i][band]->Write();
+			D0DaughterDCADist[i][band]->Write();
+            D0PtKaonVsPtPion[i][band]->Write();
+            D0PKaonVsPPion[i][band]->Write();
+            D0RawEtaVsRawPhi[i][band]->Write();
+            D0RawEtaVsRawPhiLeftPtBlob[i][band]->Write();
+            D0RawEtaVsRawPhiRightPtBlob[i][band]->Write();
+		}
+	}
+       
+    eventCounter->Write();
+    kaonEtaDist->Write();
+    pionEtaDist->Write();
+    kaonPhiDist->Write();
+    pionPhiDist->Write();
+    hadronPtDist->Write();
+    hadronPhiDist->Write();
+    hadronEtaDist->Write();
+    trackCounter->Write();
+    dEdxVsPt->Write();
+    invBetaVsPt->Write();
+    DCAtoPrimaryVertex->Write();
+    DCAtoPrimaryVertexCut->Write();
+    d0CountPerEvent->Write();
+    vZandCentBinPerEvent->Write();
+    usedTracks->Write();
+    histOfCuts->Write();
+    pVtxX->Write();
+    pVtxY->Write();
+    pVtxZ->Write();
+    hadronChi2->Write();
+    hadronNHitsFit->Write();
+    hadronNHitsFitOverMax->Write();
+   
+    mOutputFile->Close();
   
 
-   return kStOK;
+    return kStOK;
 }
 //-----------------------------------------------------------------------------
 
@@ -567,38 +1007,68 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
   
     trackCount = 0;
     centralityBin = 0;  //This number will be between 0 and 8 -- 9 bins total
-    
     VzBin = 0;
     bandBin = -1; 
     centralityClass = -1;
+    topologicalCutPtBin = -1;
+	ptBin = -1;
 	
     //--------------Local Variables used in the code-------------------
-    double delPhi         = 0;
-    double delPhiCp       = 0;
-    double delEta         = 0;
-    double pt             = 0;
-    double phi            = 0;
-    double eta            = 0;
-    double dEdx           = 0;
-    double beta           = 0;
-    int    PIDflag        = 0;
-    int    numD0s         = 0;
-    bool   minBiasFlag    = false;
-    int    realTracks     = 0;
+    double delPhi          = 0;
+    double delPhiCp        = 0;
+    double delEta          = 0;
+    double pt              = 0;
+    double phi             = 0;
+    double eta             = 0;
+    double dEdx            = 0;
+    double beta            = 0;
+    double nHitsFitRatio   = 0;
+    int    PIDflag         = 0;
+    int    numD0s          = 0;
+    bool   minBiasFlag     = false;
+    int    realTracks      = 0;
+    int    realTracksFinal = 0;
+    double hadronEffWeight = 1;     //this is the efficiency weight for the hadrons, based on the exponential function
+    double oneOverEffWeight = 1;
+    
+    double delEtaDaughters = 0;
+    double delPhiDaughters = 0;
+	
+    double D0Eff = 1;
+    double oneOverD0Eff = 1;
+   
+    double daughterPionPt = 0;
+    double daughterKaonPt = 0;
+	int    kPiCharge      = 0;   //US is negative and LS is positive
+    double finalPairWeight = 1;
+    
+    //TOF variables
+    //double invBetaMeasured = 1;
+    //double invBetaExpected = 1;
+    //double pionMassSquared = 
+    //double kaonMassSquared = 
+    //double invBetaDelta;
+    
+    //double tofCut = .03;
+    
+    //----------------------------------------------------------------------------------------------------------------
     
     bool storedD0Event    = false;
-    bool storedLSBEvent   = false;
-    bool storedRSBEvent   = false;
+    bool associatedHadronIsDaughter = false;
+    //bool storedLSBEvent   = false;
+    //bool storedRSBEvent   = false;
     
     StPicoTrack* trk;
-    //StPicoTrack* trk2;
     StThreeVectorF trackMom;
     StThreeVectorF trackMom2;
+    StThreeVectorF daughterKaonMom;
+    StThreeVectorF daughterPionMom;
     double bField         = picoDst->event()->bField();
     StThreeVectorF pVtx   = picoDst->event()->primaryVertex();
     StThreeVectorF kaonPionMom;
     
     std::vector <StThreeVectorF> mAssociatedHadronList;
+    std::vector <int> mAssociatedHadronListIndex;
     
     bool storeEventToMix        = true;
     bool storeKaonPionEvent     = false;
@@ -612,6 +1082,16 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
 /****************************************************************************************************************/
 /****************************PRELIMINARY EVENT CUTS BEGIN********************************************************/  
 /***************************************************************************************************************/    
+    //if(!mPicoD0Event->isGoodEvent()) { return kStOk; }    //apply basic event cuts here
+ 
+    if(USE_VZ_BINS){
+            Vz = picoDst->event()->primaryVertex().z();
+            VzBin = getVzBin(Vz);                  //get Vz bin
+        }
+   
+        else VzBin = 0;
+    
+    if(VzBin == -1) { return kStOk; }
  
     if(!mHFCuts->isGoodRun(picoDst->event())){
       
@@ -641,45 +1121,155 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
     trackCounter->Fill(picoDst->numberOfTracks());
    
 /****************************************************************************************************************/
-/****************************PRELIMINARY EVENT CUTS END********************************************************/  
+/****************************PRELIMINARY EVENT CUTS END*********************************************************/  
 /***************************************************************************************************************/ 
+
+if(DEBUG){ 
+        
+        cout << endl << endl;
+        cout << "******************************************************************************" << endl;
+        cout << "*******************************EVENT START************************************" << endl;
+        cout << "We are on event # " << eventNumber << endl << endl;
+        eventNumber++;
+}        
+
+
+/****************************************************************************************/
+/***************************Initial check for D0 candidate begin*************************/  
+/****************************************************************************************/  
+  
+    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx){//begin loop to check if event can be used (check if a D0 exists)
+   
+        StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
+        StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+        StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+                   
+        daughterKaonMom = kaon->gMom(pVtx, bField);
+        daughterPionMom = pion->gMom(pVtx, bField);           
+        kPiCharge = kaon->charge()*pion->charge();           
+       
+        //bandBin = getUSInvMassBandBin(kp->m(), kPiCharge); //0 - SBR, 1 - D0 cand. , 2 - SBL, 3 LS   
+        bandBin = getUSInvMassBandBin(kp->m(), kPiCharge, USSideBandLeftLow, USSideBandLeftHigh, D0InvMassLow, D0InvMassHigh, USSideBandRightLow,USSideBandRightHigh);		
+        topologicalCutPtBin = getTopologicalCutPtBin(kp->pt());
+      
+	    if(DEBUG) { cout << "bandBin: " << bandBin << endl; }
+	  
+        if(topologicalCutPtBin == -1 ) {continue;}
+        
+        if(USE_DOUBLE_MIS_PID_PROTECTION && (((fabs(kaon->nSigmaKaon()) <= 2.0) && (fabs(kaon->nSigmaPion()) <= 2.0)) &&
+           ((fabs(pion->nSigmaKaon()) <= 2.0) && (fabs(pion->nSigmaPion()) <= 2.0)))){ continue; }   //TPC nSigma double misPID protection  
+           
+		if((kaon->nHitsFit() < nHitsFitMin || !kaon->isHFTTrack()) || (pion->nHitsFit() < nHitsFitMin || !pion->isHFTTrack()) ) { continue; }
+        if((fabs(kaon->nSigmaKaon()) > 2.0) || (fabs(pion->nSigmaPion()) > 2.0)){ continue; }   //good TPC track   
+         
+        if(USE_TOF && ((mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon))) || mHFCuts->getTofBeta(kaon) <= 0)) {continue;}
+        if(USE_TOF && ((mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion))) || mHFCuts->getTofBeta(pion) <= 0)) {continue;}
+        
+        if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon)))) {continue;}
+        if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion)))) {continue;}
+        
+        //if(USE_PAIR_WISE_PT_CUT && !pairWisePtCutCheck(topologicalCutPtBin, daughterKaonMom.perp(), daughterPionMom.perp(), 1)) {continue;} //special check for MC difference from data -- not used
+		
+	    //  ptmin ptmax   decayLenMin&Max   daughterDCA kaon/pion pt kaon/pion DCA  DCA to PV
+        if((bandBin == 1 || bandBin == 3) &&                              //Check for candidate in peak range (LS & US)
+            cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                    d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                    d0TopologicalCutArray[topologicalCutPtBin][2])) {
+
+                    storeEventToMix = false;
+                    storeKaonPionEvent = true;                     
+                    if(DEBUG) { cout << "D0 Candidate information" << endl << endl; cout << "Mass: "<< kp->m() << "       US (-1) or LS (1): " << kPiCharge << endl << endl;     
+                                cout << "Kaon Index: " << kp->kaonIdx() << "    Pion Index: " << kp->pionIdx() << endl << endl;}
+                                
+                    mAssociatedHadronListIndex.push_back(kp->kaonIdx()); //stores index of candidate daughter so it is not used as an associated track
+                    mAssociatedHadronListIndex.push_back(kp->pionIdx()); //stores index of candidate daughter so it is not used as an associated track
+                     
+                    if(kPiCharge < 0 ) {numD0s++;}
+        }     
+
+       else if(bandBin == 0 && kPiCharge < 0 &&             //Check for candidate in left side band (US)
+            cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) {
+
+                     if(DEBUG){ cout << "Left side band Candidate information" << endl << endl; cout << "Mass: "<< kp->m() << endl << endl;  
+                                cout << "Kaon Index: " << kp->kaonIdx() << "    Pion Index: " << kp->pionIdx() << endl << endl;}
+                     storeEventToMix = false;
+                     storeKaonPionEvent = true;  
+
+                     mAssociatedHadronListIndex.push_back(kp->kaonIdx()); //stores index of candidate daughter so it is not used as an associated track
+                     mAssociatedHadronListIndex.push_back(kp->pionIdx()); //stores index of candidate daughter so it is not used as an associated track                     
+            }               
+            
+      else if(bandBin == 2 && kPiCharge < 0 &&          //Check for candidate in right side band (US)
+            cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) {
+
+                    if(DEBUG){ cout << "Right side band Candidate information" << endl << endl; cout << "Mass: "<< kp->m() << endl << endl; 
+                               cout << "Kaon Index: " << kp->kaonIdx() << "    Pion Index: " << kp->pionIdx() << endl << endl;} 
+            
+                    storeEventToMix = false;
+                    storeKaonPionEvent = true; 
+
+                    mAssociatedHadronListIndex.push_back(kp->kaonIdx()); //stores index of candidate daughter so it is not used as an associated track
+                    mAssociatedHadronListIndex.push_back(kp->pionIdx()); //stores index of candidate daughter so it is not used as an associated track     
+
+                                         
+            }                     
+        
+    }//end loop to check if event can be used (check if a D0 exists)        
+    
+    if(DEBUG) {cout << "Number of D0 candidates in this event: " << numD0s << endl << endl; }  
+    if(DEBUG) {cout << "Number of daughters from kPi pairs (signal or SB): " << mAssociatedHadronListIndex.size() << endl << endl; } 
+  
+/*****************************************************************************************************************/
+/*****************************************Initial check for D0 candidate end**************************************/
+/*****************************************************************************************************************/  
+  
   
    
 /****************************************************************************************************************/  
 /********************QA Loop for storing all of the basic information about the events and tracks BEGIN**********/
 /****************************************************************************************************************/   
    
-    for(unsigned int i = 0; i < picoDst->numberOfTracks(); ++i){ // Begin loop to fill basic track information and make nega/posi list
-                                                                 //gets pt, eta, phi, dEdx and beta from TOF
+    for(unsigned int i = 0; i < picoDst->numberOfTracks(); ++i){ // Begin associated hadron list loop
+                         
+        associatedHadronIsDaughter = false;
+                         
         trk = picoDst->track(i);
         trackMom = trk->gMom(pVtx, bField);
-        
-        if(!mHFCuts->isGoodTrack(trk)) { continue; }    //Checks the HFT requirement for a track
-        
+        nHitsFitRatio = (float)trk->nHitsFit()/((float)trk->nHitsMax());
         trackDCA = ((trk->helix().origin())-pVtx).mag();
-        DCAtoPrimaryVertex->Fill(trackDCA);            //QA plot to see full DCA distribution
-        
-        if(trk->chi2() > trackChi2max) { continue; }  //check chi2 cut
-        if(!checkDCAtoPV(trackDCA))  { continue; }   // track quality cut for DCA to PV
-        
-        pt   = TMath::Sqrt((trackMom.x()*trackMom.x())+(trackMom.y()*trackMom.y()));
-        if(pt < hadronPtMin || pt > hadronPtMax){continue;}              //check pt cut
-        
-        if(trackMom.mag() > .20 && trackMom.mag() < .45 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) { continue; }  //remove electron contamination
-        if(trackMom.mag() > .70 && trackMom.mag() < .80 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) { continue; }
-        
-        eta  = trackMom.pseudoRapidity();
-		if(eta > 1 || eta < -1) { continue; }
-		
-        realTracks++;                        //after a track passes all cuts, it is considered a "real track"
-        
         dEdx = trk->dEdx();
+        phi = trackMom.phi();    
+        eta  = trackMom.pseudoRapidity();    
+        pt   = TMath::Sqrt((trackMom.x()*trackMom.x())+(trackMom.y()*trackMom.y()));    
+            
         
-        phi = trackMom.phi();
+        if(trk->chi2() > trackChi2max || !checkDCAtoPV(trackDCA) || (trk->nHitsFit() < nHitsFitMin) ) { continue; } //check chi2 cut -- track quality cut for DCA to PV --num fit points check
+        if(nHitsFitRatio < nHitsFitMinOverMax)                                                                          {continue;} //num fit points over maximum number check
+        if(pt < hadronPtMin || pt > hadronPtMax)                                                                        {continue;}  //check pt cut
+        if(trackMom.mag() > .20 && trackMom.mag() < .45 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) {continue;}  //remove electron contamination
+        if(trackMom.mag() > .70 && trackMom.mag() < .80 && trk->nSigmaElectron() > -1.5 && trk->nSigmaElectron() < 1.5) {continue;}  //"                            "
+        if(eta > 1 || eta < -1) { continue; }
+	
+        realTracks++;                        //after a track passes all cuts, it is considered a "real track"
+
+	if(!mHFCuts->isGoodTrack(trk)) { continue; }    //Checks the HFT requirement for a track
         
+        realTracksFinal++;                        //after a track passes all cuts, it is considered a "real track"
+
+
+        DCAtoPrimaryVertex->Fill(trackDCA);  
         dEdxVsPt->Fill(trackMom.mag(), dEdx);
         DCAtoPrimaryVertexCut->Fill(trackDCA);
         hadronChi2->Fill(trk->chi2());
+        hadronNHitsFit->Fill(trk->nHitsFit());
+        hadronNHitsFitOverMax->Fill(nHitsFitRatio);
+        hadronPtDist->Fill(pt); 
+        hadronPhiDist->Fill(phi);        
+        hadronEtaDist->Fill(eta);
         
         if(mHFCuts->hasTofPid(trk)){    
          
@@ -687,45 +1277,42 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
             invBetaVsPt->Fill(trackMom.mag(), (1/beta));        
         }
         
-        hadronPtDist->Fill(pt); 
-        hadronPhiDist->Fill(phi);        
-        hadronEtaDist->Fill(eta);
-        
         if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaKaon()) < 2.0)){       //ONLY check nSigma for TPC track -- used to be mHFCuts->isTPCKaon(trk), but this include pt cut
                                                                                   //need to fix this. Need to figure out how to access the nSigma from the cuts
               kaonEtaDist->Fill(eta);
               kaonPhiDist->Fill(phi);
-              //continue;
         }
 
-        else if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaPion()) < 3.0)){     //ONLY check nSigma for TPC track
+        else if(mHFCuts->isGoodTrack(trk) && (fabs(trk->nSigmaPion()) < 2.0)){     //ONLY check nSigma for TPC track
                
               pionEtaDist->Fill(eta);
               pionPhiDist->Fill(phi);
-              //continue;
         }
         
-        mAssociatedHadronList.push_back(trackMom); //store the associated tracks to a list for quicker pairing later
+        for(int index = 0; index < mAssociatedHadronListIndex.size(); index++){ //this loop sets the associatedList up to NOT store a kPi candidate daughter
         
+            if(mAssociatedHadronListIndex[index] == i) {associatedHadronIsDaughter = true;}
+            
+        }    
         
-    } //End loop to fill basic track information and make nega/posi list   
+        if(associatedHadronIsDaughter) {continue;}
+        
+        mAssociatedHadronList.push_back(trackMom);
+    
+    } //End associated hadron list loop  
+    
+    
+        
     
     //Fill track distributions and get centrality bins////////////////////
     
-        usedTracks->Fill(realTracks);   
+        usedTracks->Fill(realTracksFinal);   
     
         centralityBin = getCentralityBin(realTracks);  //get multiplicity bin
         centralityClass = getCentralityClass(realTracks);
-   
-        if(USE_VZ_BINS){
-            Vz = picoDst->event()->primaryVertex().z();
-            VzBin = getVzBin(Vz);                  //get Vz bin
-        }
-   
-        else VzBin = 0;
-    
+        
         if(centralityBin == -1 || VzBin == -1) { return kStOk; }
-    
+       
         pVtxX->Fill(picoDst->event()->primaryVertex().x());
         pVtxY->Fill(picoDst->event()->primaryVertex().y());
         pVtxZ->Fill(picoDst->event()->primaryVertex().z()); 
@@ -736,15 +1323,15 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
     
     if(DEBUG){ 
         
-                cout << endl << endl;
-                cout << "*********************EVENT START******************" << endl;
-                cout << "We are on event # " << eventNumber << endl;
-                cout << "This event has " << realTracks << " tracks." << endl;
-                if(USE_VZ_BINS){ cout << "Vz: " << Vz << "   VzBin: " << VzBin << "    Centrality Bin: " << centralityBin << endl; }
-                else cout << "Centrality Bin: " << centralityBin << endl;
-                cout << endl;
-                cout << endl;
-                eventNumber++;
+        cout << endl << endl;
+        //cout << "******************************************************************************" << endl;
+        //cout << "*******************************EVENT START************************************" << endl;
+        //cout << "We are on event # " << eventNumber << endl;
+        cout << "This event has " << realTracks << " \"good\" quality tracks." << endl;
+        cout << endl << "Number of associated tracks: " << mAssociatedHadronList.size() << endl; 
+        cout << "Vz: " << Vz << "   VzBin: " << VzBin << "    Centrality Bin: " << centralityBin << endl; 
+        cout << endl << endl;
+        //eventNumber++;
     }         
            
         
@@ -763,59 +1350,7 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
 /***************************************LOOP TO STORE EVENTS IN MIXER BEGIN***************************************/
 /****************************************************************************************************************/   
    
-    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx){//begin loop to check if event can be used (check if a D0 exists)
    
-        StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
-        StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
-        StPicoTrack const* pion = picoDst->track(kp->pionIdx());
-                    
-                    //  ptmin ptmax   decayLenMin&Max   daughterDCA kaon/pion pt kaon/pion DCA  DCA to PV
-        if(kp->m() > D0InvMassLow && kp->m() < D0InvMassHigh && isGoodPair(kp) &&                              //Check for candidate in peak range (LS & US)
-            cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-            d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {
-
-                     storeEventToMix = false;
-                     storeKaonPionEvent = true;                     
-                     if(DEBUG){
-                         cout << "D0 Candidate information" << endl << endl;
-                         cout << "Mass: "<< kp->m() << "       US (-1) or LS (1): " << kaon->charge()*pion->charge() << endl;
-                         cout << endl;
-                     }
-                     
-                     numD0s++;
-        }     
-
-       else if(kp->m() > USSideBandLeftLow && kp->m() < USSideBandLeftHigh && isGoodPair(kp) && kaon->charge()*pion->charge() < 0 &&             //Check for candidate in left side band (US)
-            cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-            d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {
-
-                     if(DEBUG){
-                         cout << "Left side band Candidate information" << endl << endl;
-                         cout << "Mass: "<< kp->m() << endl;
-                         cout << endl;
-                     } 
-            
-                     storeEventToMix = false;
-                     storeKaonPionEvent = true;                     
-            }               
-            
-      else if(kp->m() > USSideBandRightLow && kp->m() < USSideBandRightHigh && isGoodPair(kp) && kaon->charge()*pion->charge() < 0 &&          //Check for candidate in right side band (US)
-            cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-            d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {
-
-                     if(DEBUG){
-                         cout << "Right side band Candidate information" << endl << endl;
-                         cout << "Mass: "<< kp->m() << endl;
-                         cout << endl;
-                     } 
-            
-                     storeEventToMix = false;
-                     storeKaonPionEvent = true;                     
-            }                     
-        
-    }//end loop to check if event can be used (check if a D0 exists)        
-    
-    if(DEBUG) {cout << "Number of D0 candidates in this event: " << numD0s << endl << endl; }
     
     if(EVENT_MIXING){  // begin event mixing on/off switch
         
@@ -835,6 +1370,10 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
         
                         if(trk->chi2() > trackChi2max) { continue; }  //check chi2 cut
                         if(!checkDCAtoPV(trackDCA))    { continue; }   // track quality cut for DCA to PV
+                        if(trk->nHitsFit() < nHitsFitMin) { continue; }      //num fit points check
+                        nHitsFitRatio = (float)trk->nHitsFit()/((float)trk->nHitsMax());
+        
+                        if(nHitsFitRatio < nHitsFitMinOverMax) { continue; } //num fit points over maximum number check
                         
                         pt   = TMath::Sqrt((trackMom.x()*trackMom.x())+(trackMom.y()*trackMom.y()));
                         if(pt < hadronPtMin || pt > hadronPtMax){continue;}   
@@ -871,37 +1410,67 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                 StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
                 StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
                 StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+				
+				daughterKaonMom = kaon->gMom(pVtx, bField);
+                daughterPionMom = pion->gMom(pVtx, bField);
+                kPiCharge = kaon->charge()*pion->charge();           
+       
+                bandBin = getUSInvMassBandBin(kp->m(), kPiCharge, USSideBandLeftLow, USSideBandLeftHigh, D0InvMassLow, D0InvMassHigh, USSideBandRightLow,USSideBandRightHigh); //0 - SBR, 1 - D0 cand. , 2 - SBL, 3 LS      
+				topologicalCutPtBin = getTopologicalCutPtBin(kp->pt());
                 
-                if(kp->m() > D0InvMassLow && kp->m() < D0InvMassHigh && isGoodPair(kp) &&                                 //begin conditional to store D0 candidate to buffer
-                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-                    d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {          
+                if(topologicalCutPtBin == -1 ) {continue;}
+                
+                if(USE_DOUBLE_MIS_PID_PROTECTION && (((fabs(kaon->nSigmaKaon()) <= 2.0) && (fabs(kaon->nSigmaPion()) <= 2.0)) &&
+                    ((fabs(pion->nSigmaKaon()) <= 2.0) && (fabs(pion->nSigmaPion()) <= 2.0)))){ continue; }   //TPC nSigma double misPID protection  
+                
+                if((kaon->nHitsFit() < nHitsFitMin || !kaon->isHFTTrack()) || (pion->nHitsFit() < nHitsFitMin || !pion->isHFTTrack()) ) { continue; } 
+				if((fabs(kaon->nSigmaKaon()) > 2.0) || (fabs(pion->nSigmaPion()) > 2.0)){ continue; }   //good TPC track    
+
+                if(USE_TOF && ((mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon))) || mHFCuts->getTofBeta(kaon) <= 0)) {continue;}
+                if(USE_TOF && ((mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion))) || mHFCuts->getTofBeta(pion) <= 0)) {continue;}
+                
+                if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon)))) {continue;}
+                if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion)))) {continue;}
+                
+				//if(USE_PAIR_WISE_PT_CUT && !pairWisePtCutCheck(topologicalCutPtBin, daughterKaonMom.perp(), daughterPionMom.perp(), 1)) { continue; }
+				
+				
+                if(kp->m() > D0InvMassLow && kp->m() < D0InvMassHigh  &&                                 //begin conditional to store D0 candidate to buffer
+                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) {          
                     
                     kaonPionMom.set(kp->lorentzVector().px(),kp->lorentzVector().py(),kp->lorentzVector().pz());
                    
                     eventBufferD0Candidate[VzBin][centralityBin]->addKaonPionToEvent(eventBufferD0Candidate[VzBin][centralityBin]->getBufferIndex()-1, kaonPionMom, kp->m(), 
-                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge());
+                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge(),
+                                                                                     kaon->gMom(pVtx, bField), pion->gMom(pVtx, bField));
                     
                }//end conditional to store D0 candidate to buffer
                
-               if(kp->m() > USSideBandLeftLow && kp->m() < USSideBandLeftHigh && isGoodPair(kp) && kaon->charge()*pion->charge() < 0 &&  //begin conditional to store US left sideband
-                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-                    d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {          
+               if(kp->m() > USSideBandLeftLow && kp->m() < USSideBandLeftHigh && kaon->charge()*pion->charge() < 0 &&  //begin conditional to store US left sideband
+                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) {          
                     
                     kaonPionMom.set(kp->lorentzVector().px(),kp->lorentzVector().py(),kp->lorentzVector().pz());
                     
                     eventBufferD0Candidate[VzBin][centralityBin]->addKaonPionToEvent(eventBufferD0Candidate[VzBin][centralityBin]->getBufferIndex()-1, kaonPionMom, kp->m(), 
-                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge());
+                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge(),
+                                                                                     kaon->gMom(pVtx, bField), pion->gMom(pVtx, bField));
                     
                }//end conditional to store US left sideband
                
-               if(kp->m() > USSideBandRightLow && kp->m() < USSideBandRightHigh && isGoodPair(kp) && kaon->charge()*pion->charge() < 0 &&  //begin conditional to store US right sideband
-                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-                    d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) {          
+               if(kp->m() > USSideBandRightLow && kp->m() < USSideBandRightHigh && kaon->charge()*pion->charge() < 0 &&  //begin conditional to store US right sideband
+                    cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) {          
                     
                     kaonPionMom.set(kp->lorentzVector().px(),kp->lorentzVector().py(),kp->lorentzVector().pz());
                     
                     eventBufferD0Candidate[VzBin][centralityBin]->addKaonPionToEvent(eventBufferD0Candidate[VzBin][centralityBin]->getBufferIndex()-1, kaonPionMom, kp->m(), 
-                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge());
+                                                                                     kp->kaonIdx(), kp->pionIdx(), kaon->charge()*pion->charge(),
+                                                                                     kaon->gMom(pVtx, bField), pion->gMom(pVtx, bField));
                     
                }//end conditional to store US right sideband
            }//end loop to store D0s to buffer
@@ -922,19 +1491,54 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
     
         StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
         StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+		
+	    daughterKaonMom = kaon->gMom(pVtx, bField);
+        daughterPionMom = pion->gMom(pVtx, bField);
+        kPiCharge = kaon->charge()*pion->charge();           
+       
+        bandBin = getUSInvMassBandBin(kp->m(), kPiCharge, USSideBandLeftLow, USSideBandLeftHigh, D0InvMassLow, D0InvMassHigh, USSideBandRightLow,USSideBandRightHigh); //0 - SBR, 1 - D0 cand. , 2 - SBL, 3 LS            
+        topologicalCutPtBin = getTopologicalCutPtBin(kp->pt());
+	    ptBin     = getPtBin(kp->pt());
+        finePtBin = getFinePtBin(kp->pt());
       
-        if(!isGoodPair(kp)) continue;   
-        if(!cutCheck(kp, d0PtLow,  d0PtHigh,  d0DecayLengthMin,  d0DecayLengthMax,  daughterDCA,
-                     d0DaughterPionPtMin, d0DaughterKaonPtMin, kaonDCA,  pionDCA,  d0DCAtoPV)) { continue; }    
+        if(topologicalCutPtBin == -1 ) {continue;}
       
-        ptBin = getPtBin(kp->pt());
+        if(USE_DOUBLE_MIS_PID_PROTECTION && (((fabs(kaon->nSigmaKaon()) <= 2.0) && (fabs(kaon->nSigmaPion()) <= 2.0)) &&
+           ((fabs(pion->nSigmaKaon()) <= 2.0) && (fabs(pion->nSigmaPion()) <= 2.0)))){ continue; }   //TPC nSigma double misPID protection  
+      
+        if((kaon->nHitsFit() < nHitsFitMin || !kaon->isHFTTrack()) || (pion->nHitsFit() < nHitsFitMin || !pion->isHFTTrack()) ) { continue; } 
+        if((fabs(kaon->nSigmaKaon()) > 2.0) || (fabs(pion->nSigmaPion()) > 2.0)){ continue; }   //good TPC track   
+      
+        if(USE_TOF && ((mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon))) || mHFCuts->getTofBeta(kaon) <= 0)) {continue;}
+        if(USE_TOF && ((mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion))) || mHFCuts->getTofBeta(pion) <= 0)) {continue;}
         
+        if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(kaon) > 0 && !mHFCuts->isTOFKaon(kaon, mHFCuts->getTofBeta(kaon)))) {continue;}
+        if(USE_TOF_HYBRID && (mHFCuts->getTofBeta(pion) > 0 && !mHFCuts->isTOFPion(pion, mHFCuts->getTofBeta(pion)))) {continue;}
+       
+	    //if(USE_PAIR_WISE_PT_CUT && !pairWisePtCutCheck(topologicalCutPtBin, daughterKaonMom.perp(), daughterPionMom.perp(), 1)) { continue; }
+	   
+	   
+        if(!cutCheck(kp, d0PtLow,  d0PtHigh,  d0TopologicalCutArray[topologicalCutPtBin][0],  d0DecayLengthMax,  d0TopologicalCutArray[topologicalCutPtBin][1],
+                     d0DaughterPionPtMin, d0DaughterKaonPtMin, d0TopologicalCutArray[topologicalCutPtBin][4], d0TopologicalCutArray[topologicalCutPtBin][3],
+                     d0TopologicalCutArray[topologicalCutPtBin][2])) { continue; }    
+      
         if(kaon->charge()*pion->charge() < 0){// begin Unlike-sign conditional 
 	      
             invMass->Fill(kp->m()); 
-            if     (centralityClass == 0) { invMassPer->Fill(kp->m()); }  
-            else if(centralityClass == 1) { invMassMidCent->Fill(kp->m()); }
-            else if(centralityClass == 2) { invMassCent->Fill(kp->m()); }              
+            if (centralityClass == 0){ 
+                invMassPer->Fill(kp->m());
+                if(USE_FINE_PT_BINS) { D0InvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }
+            }
+                                              
+            else if(centralityClass == 1){ 
+                invMassMidCent->Fill(kp->m());
+                if(USE_FINE_PT_BINS) { D0InvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }
+            }
+            
+            else if(centralityClass == 2){ 
+                invMassCent->Fill(kp->m());
+                if(USE_FINE_PT_BINS) { D0InvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }
+            }              
             if(ptBin > -1) { 
             
                 D0InvMassPtBin[ptBin][centralityClass]->Fill(kp->m()); 
@@ -946,9 +1550,18 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
 	    if(kaon->charge()*pion->charge() > 0){//begin Like-sign conditional 
           
             likeSignBG->Fill(kp->m()); 
-            if     (centralityClass == 0) { likeSignBGPer->Fill(kp->m()); }  
-            else if(centralityClass == 1) { likeSignBGMidCent->Fill(kp->m()); }
-            else if(centralityClass == 2) { likeSignBGCent->Fill(kp->m()); }                
+            if(centralityClass == 0) {
+                likeSignBGPer->Fill(kp->m()); 
+                if(USE_FINE_PT_BINS) { LSInvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }
+            }  
+            else if(centralityClass == 1){ 
+                likeSignBGMidCent->Fill(kp->m());
+                if(USE_FINE_PT_BINS) { LSInvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }
+            }
+            else if(centralityClass == 2){ 
+                likeSignBGCent->Fill(kp->m()); 
+                if(USE_FINE_PT_BINS) { LSInvMassFinePtBin[finePtBin][centralityClass]->Fill(kp->m()); }  
+            }                
             if(ptBin > -1) { 
             
                 LSInvMassPtBin[ptBin][centralityClass]->Fill(kp->m());
@@ -956,129 +1569,154 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
             }
           
         }//end Like-sign conditional 
- 
+        
+       
      
     /****************************************************************************************************************/
     /****************************SIBLING EVENT PAIRS FORMATIION BEGINS HERE*****************************************/  
     /***************************************************************************************************************/     
         
-        bandBin = -1;  //set default case value -- no pair formation
         
-        if(kaon->charge()*pion->charge() < 0){// begin US conditional
+        
+        if(kPiCharge < 0){// begin US conditional
                 
-            if(kp->m() > D0InvMassLow && kp->m() < D0InvMassHigh){ // begin loop over both unlike-sign AND LIKE SIGN D0 candidates 
-
-                if(DEBUG) { cout << "   D0 Candidate Mass: " << kp->m() << "    PtBin : " << ptBin << endl; }
+				//bandBin = getUSInvMassBandBin(kp->m(), kPiCharge, USSideBandLeftLow, USSideBandLeftHigh, D0InvMassLow, D0InvMassHigh, USSideBandRightLow,USSideBandRightHigh); //0 - SBR, 1 - D0 cand. , 2 - SBL, 3 LS
+				
+                if(DEBUG && bandBin == 1) { cout << "   D0 Candidate Mass: " << kp->m() << "    PtBin : " << ptBin << endl; }
             
-                if(!storedD0Event){
+                if(!storedD0Event && bandBin == 1){
                 
                     eventCounter->Fill(0);
                     storedD0Event = true;
                 }
    
-                d0Counter = d0Counter + 1;
-                D0ptDist->Fill(kp->pt()); 
-                D0EtaDist->Fill(kp->eta());
-                D0PhiDist->Fill(kp->phi());
+                if(bandBin==1) {d0Counter = d0Counter + 1;}
+				D0ptDist[bandBin][NUM_PT_BINS]->Fill(kp->pt());
+                D0ptDist[bandBin][ptBin]->Fill(kp->pt()); 
+                D0EtaDist[bandBin][ptBin]->Fill(kp->eta());
+                D0PhiDist[bandBin][ptBin]->Fill(kp->phi());
+                D0KaonPtDist[bandBin][ptBin]->Fill(daughterKaonMom.perp());
+                D0KaonEtaDist[bandBin][ptBin]->Fill(daughterKaonMom.pseudoRapidity()); 
+                D0KaonPhiDist[bandBin][ptBin]->Fill(daughterKaonMom.phi()); 
+                D0PionPtDist[bandBin][ptBin]->Fill(daughterPionMom.perp());
+                D0PionEtaDist[bandBin][ptBin]->Fill(daughterPionMom.pseudoRapidity()); 
+                D0PionPhiDist[bandBin][ptBin]->Fill(daughterPionMom.phi()); 
+                D0DecayLengthDist[bandBin][ptBin]->Fill(kp->decayLength()); 
+                D0DCAToPVDist[bandBin][ptBin]->Fill(kp->perpDcaToVtx()); 
+                D0KaonPVDist[bandBin][ptBin]->Fill(kp->kaonDca());
+                D0KaonPVDist[bandBin][NUM_PT_BINS]->Fill(kp->kaonDca());                 
+                D0PionPVDist[bandBin][ptBin]->Fill(kp->pionDca());
+                D0PionPVDist[bandBin][NUM_PT_BINS]->Fill(kp->pionDca());                 
+                D0DaughterDCADist[bandBin][ptBin]->Fill(kp->dcaDaughters()); 
+                D0EtaDist[bandBin][NUM_PT_BINS]->Fill(kp->eta());
+                D0PhiDist[bandBin][NUM_PT_BINS]->Fill(kp->phi());
+                D0KaonPtDist[bandBin][NUM_PT_BINS]->Fill(daughterKaonMom.perp());
+                D0KaonEtaDist[bandBin][NUM_PT_BINS]->Fill(daughterKaonMom.pseudoRapidity());
+                D0KaonPhiDist[bandBin][NUM_PT_BINS]->Fill(daughterKaonMom.phi());
+                D0PionPtDist[bandBin][NUM_PT_BINS]->Fill(daughterPionMom.perp());
+                D0PionEtaDist[bandBin][NUM_PT_BINS]->Fill(daughterPionMom.pseudoRapidity());
+                D0PionPhiDist[bandBin][NUM_PT_BINS]->Fill(daughterPionMom.phi());
+                D0DecayLengthDist[bandBin][NUM_PT_BINS]->Fill(kp->decayLength());
+                D0DCAToPVDist[bandBin][NUM_PT_BINS]->Fill(kp->perpDcaToVtx());
+                D0DaughterDCADist[bandBin][NUM_PT_BINS]->Fill(kp->dcaDaughters());
+                D0PtKaonVsPtPion[bandBin][ptBin]->Fill(daughterPionMom.perp(), daughterKaonMom.perp());
+                D0PKaonVsPPion[bandBin][ptBin]->Fill(daughterPionMom.mag(), daughterKaonMom.mag());
                 
-                if(SINGLES_DISTS){
-                    for(unsigned int i = 0; i < mAssociatedHadronList.size(); i++){ // begin loop for single part distributions on D0/h+/-
-           
-                        if(i == kp->kaonIdx() || i == kp->pionIdx()) { continue; }   
-                    
-                        trackMom = mAssociatedHadronList[i];
-        
-                        phi  = TMath::ATan2(trackMom.y(),trackMom.x());
-                        eta = trackMom.pseudoRapidity();
-                    
-                        phiD0vsPhiH[VzBin][centralityBin]->Fill(phi, kp->phi());
-                        etaD0vsEtaH[VzBin][centralityBin]->Fill(eta, kp->eta());     
-                        phiD0vsEtaD0[VzBin][centralityBin]->Fill(kp->eta(), kp->phi());    
-                    
-                    }
-                }
+                delEtaDaughters = TMath::Abs(daughterKaonMom.pseudoRapidity()-daughterPionMom.pseudoRapidity());
+                delPhiDaughters = daughterKaonMom.phi()-daughterPionMom.phi();
+               
+                cout << "HERE AGAIN AGAIN AGAIN!" << endl;
+ 
+                if(delPhiDaughters < -TMath::Pi()) { delPhiDaughters = delPhiDaughters + 2*TMath::Pi(); }     //shift [-2Pi, 2Pi] -> [-Pi,Pi]
+                else if(delPhiDaughters > TMath::Pi()) { delPhiDaughters = delPhiDaughters - 2*TMath::Pi(); }
                 
-                bandBin = 1;
-            }
-                
-            else if(kp->m() > USSideBandLeftLow &&  kp->m() < USSideBandLeftHigh){ //Side Band Left
-                
-                if(!storedLSBEvent){
-                
-                    eventCounter->Fill(4);
-                    storedLSBEvent = true;
-                }
-    
-                if(DEBUG) { cout << "   SideBandLeft: " << kp->m() << "    PtBin : " << ptBin << endl;}    
-                bandBin = 0; 
+                delPhiDaughters = TMath::Abs(delPhiDaughters);
+               
+                if(bandBin != 3) { 
+						
+						D0RawEtaVsRawPhi[bandBin][ptBin]->Fill(delEtaDaughters, delPhiDaughters); 
+						D0RawEtaVsRawPhi[bandBin][NUM_PT_BINS]->Fill(delEtaDaughters, delPhiDaughters);
+						
+                        if((daughterKaonMom.perp() > 1.2 && daughterKaonMom.perp() < 2.0) && (daughterPionMom.perp() > .35 && daughterPionMom.perp() < 0.6)){
+                        
+                            D0RawEtaVsRawPhiLeftPtBlob[bandBin][ptBin]->Fill(delEtaDaughters, delPhiDaughters);
+                        }
+                        
+                        if((daughterKaonMom.perp() > .5 && daughterKaonMom.perp() < 1.1) && (daughterPionMom.perp() > 1.0 && daughterPionMom.perp() < 1.3)){
+                        
+                            D0RawEtaVsRawPhiRightPtBlob[bandBin][ptBin]->Fill(delEtaDaughters, delPhiDaughters);
+                        }
+					}
+               
             }
             
-            else if(kp->m() > USSideBandRightLow &&  kp->m() < USSideBandRightHigh){ //Side Band Right
-                 
-                if(!storedRSBEvent){
-                
-                    eventCounter->Fill(5);
-                    storedRSBEvent = true;
-                }
-                
-                if(DEBUG) { cout << "   SideBandRight: " << kp->m() << "    PtBin : " << ptBin << endl;}    
-                bandBin = 2; 
-            }
-                
-        }  //end US conditional  
-            
-        else if(kaon->charge()*pion->charge() > 0 && kp->m() > D0InvMassLow && kp->m() < D0InvMassHigh) {// like sign conditional 
-
-            if(DEBUG) { cout << "   LS Mass: " << kp->m() << "    PtBin : " << ptBin << endl; }
-            bandBin = 3; 
-        }          
-            
-        
+            //bandBin = getUSInvMassBandBin(kp->m(), kPiCharge, USSideBandLeftLow, USSideBandLeftHigh, D0InvMassLow, D0InvMassHigh, USSideBandRightLow,USSideBandRightHigh);	
             
             if(bandBin > -1){// begin sibling pair formation with whatever "band" we are in, if we have a candidate in the band -- NEED TO MAKE A TRACK LIST TO SPEED THIS UP!!!
                 
                 realTracks = 0;
                 
+                if(DEBUG) { cout << endl << "Sibling pair formation with bandBin: " << bandBin << endl; }
+                
                 for(unsigned int i = 0; i < mAssociatedHadronList.size(); i++){ // begin picoDST loop for d0-hadron correlations
            
-                    if(i == kp->kaonIdx() || i == kp->pionIdx()) { continue; }    // Need to check this -- should avoid doing correlations with a D0 candidate daughter
-                    
                     trackMom = mAssociatedHadronList[i];
-        
+                  
+                    daughterKaonMom = kaon->gMom(pVtx, bField);
+                    daughterPionMom = pion->gMom(pVtx, bField);
+                    
+                    pt = TMath::Sqrt((trackMom.x()*trackMom.x())+(trackMom.y()*trackMom.y()));
+                    
                     realTracks++;
                     
                     phi  = TMath::ATan2(trackMom.y(),trackMom.x());
                     eta = trackMom.pseudoRapidity();
+					
+				    if(SINGLES_DISTS && bandBin == 1){
+                        
+                        phiD0vsPhiH[0][ptBin][VzBin][centralityBin]->Fill(phi, kp->phi());
+                        etaD0vsEtaH[0][ptBin][VzBin][centralityBin]->Fill(eta, kp->eta());     
+                        phiD0vsEtaD0[0][ptBin][VzBin][centralityBin]->Fill(kp->eta(), kp->phi());    
+                        phiHvsEtaH[0][ptBin][VzBin][centralityBin]->Fill(eta,phi);
                     
-                    if(SINGLES_DISTS){ phiHvsEtaH[VzBin][centralityBin]->Fill(eta,phi); }
+                    }
                     
                     delPhi = kp->phi()-phi;
+                    delEta = TMath::Abs(kp->eta()-eta);
                     
                     if(delPhi < -TMath::Pi()) { delPhi = delPhi + 2*TMath::Pi(); }     //shift [-2Pi, 2Pi] -> [-Pi,Pi]
                     else if(delPhi > TMath::Pi()) { delPhi = delPhi - 2*TMath::Pi(); }
                     
                     delPhi = TMath::Abs(delPhi);//Gets absolute value of angle 
-                    //if(delPhi >= (3*TMath::PiOver2())+(TMath::Pi()/12.0)){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
-                    if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                    
+					if(delPhi >= (3*TMath::PiOver2()) + phiBinShift){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                    //if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
                     
                     delPhiCp = -delPhi;//Gets negative copy of absolute value of angle.....
-                    //if(delPhiCp < -TMath::PiOver2()+(TMath::Pi()/12.0)){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
-                    if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                    if(delPhiCp < -TMath::PiOver2() + phiBinShift){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                    //if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
                 
-                    delEta = TMath::Abs(kp->eta()-eta);
-                   
                     if(D0_HADRON_CORR){
                     
-                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi);
-                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp);
-                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
-                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp);
+                        hadronEffWeight = effWeightPions->Eval(pt, 0, 0, 0);
+                        oneOverEffWeight = 1/hadronEffWeight;
+                        
+                        D0Eff = effWeightD0[centralityClass]->Eval(kp->pt(), 0, 0, 0);
+                        
+                        oneOverD0Eff = 1/D0Eff;
+                        
+                        finalPairWeight = oneOverEffWeight*oneOverD0Eff;
+                    
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi, finalPairWeight);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp, finalPairWeight);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi, finalPairWeight);
+                        sibCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp, finalPairWeight);
                             if(ptBin > -1) { 
                     
-                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi);
-                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp); 
-                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
-                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp); 
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi, finalPairWeight);
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp, finalPairWeight); 
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi, finalPairWeight);
+                                sibCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp, finalPairWeight); 
                             }
                     }
                 
@@ -1143,7 +1781,11 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                         kaonPionMom = kaonPionTrack1.gMom();
                         D0Pt = TMath::Sqrt((kaonPionMom.x()*kaonPionMom.x())+(kaonPionMom.y()*kaonPionMom.y()));
                     
+                        daughterPionPt = TMath::Sqrt((kaonPionTrack1.pionGMom().x()*kaonPionTrack1.pionGMom().x())+(kaonPionTrack1.pionGMom().y()*kaonPionTrack1.pionGMom().y()));
+                        daughterKaonPt = TMath::Sqrt((kaonPionTrack1.kaonGMom().x()*kaonPionTrack1.kaonGMom().x())+(kaonPionTrack1.kaonGMom().y()*kaonPionTrack1.kaonGMom().y()));
+                    
                         ptBin = getPtBin(D0Pt);
+                        
                     
                         if(kaonPionTrack1.charge() < 0 && kaonPionTrack1.mass() > D0InvMassLow && kaonPionTrack1.mass() < D0InvMassHigh)                 { bandBin = 1; }    //US center band
                         else if(kaonPionTrack1.charge() < 0 && kaonPionTrack1.mass() > USSideBandLeftLow &&  kaonPionTrack1.mass() < USSideBandLeftHigh) { bandBin = 0; }    //US left band
@@ -1162,31 +1804,51 @@ Int_t StPicoD0AnaMaker::Make(){ //begin Make member function
                                 phi = TMath::ATan2(trackMom.y(),trackMom.x());  
                                 eta = trackMom.pseudoRapidity();
                  
+                                if(SINGLES_DISTS && bandBin == 1){
+                                   
+                                    phiD0vsPhiHMixed[0][ptBin][VzBin][centralityBin]->Fill(phi, kaonPionTrack1.gMom().phi());
+                                    etaD0vsEtaHMixed[0][ptBin][VzBin][centralityBin]->Fill(eta, kaonPionTrack1.gMom().pseudoRapidity());     
+                                    phiD0vsEtaD0Mixed[0][ptBin][VzBin][centralityBin]->Fill(kaonPionTrack1.gMom().pseudoRapidity(), kaonPionTrack1.gMom().phi());    
+                                    phiHvsEtaHMixed[0][ptBin][VzBin][centralityBin]->Fill(eta,phi);
+                                    
+                                }
+                 
                                 delPhi = kaonPionTrack1.gMom().phi()-phi;
                                 if(delPhi <= -TMath::Pi()) { delPhi = delPhi + 2*TMath::Pi(); }     //shift [-2Pi, 2Pi] -> [-Pi,Pi]
                                 else if(delPhi >= TMath::Pi()) { delPhi = delPhi - 2*TMath::Pi(); }
                  
                                 delPhi = TMath::Abs(delPhi);//Gets absolute value of angle 
-                                //if(delPhi >= (3*TMath::PiOver2())+(TMath::Pi()/12.0)){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
-                                if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                                if(delPhi >= (3*TMath::PiOver2()) + phiBinShift){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
+                                //if(delPhi >= 3*TMath::PiOver2()){ delPhi = delPhi - 2*TMath::Pi(); }//....and shifts it
                     
                                 delPhiCp = -delPhi;//Gets negative copy of absolute value of angle.....
-                                //if(delPhiCp < -TMath::PiOver2()+(TMath::Pi()/12.0)){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
-                                if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                                if(delPhiCp < -TMath::PiOver2() + phiBinShift){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
+                                //if(delPhiCp < -TMath::PiOver2()){ delPhiCp = delPhiCp + 2*TMath::Pi(); }//....and shifts it
                 
                 
                                 delEta = TMath::Abs(kaonPionTrack1.gMom().pseudoRapidity()-eta);
                 
-                                mixCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi); //delEta & delPhi stored in US mixed correlation histogram
-                                mixCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp); //delEta & delPhi stored in US mixed correlation histogram
-                                mixCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi); //delEta & delPhi stored in US mixed correlation histogram
-                                mixCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp); //delEta & delPhi stored in US mixed correlation histogram
-                                if(ptBin > -1) { 
-                                
-                                    mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi);
-                                    mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp);
-                                    mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi);
-                                    mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp);
+                                hadronEffWeight = effWeightPions->Eval(pt, 0, 0, 0);
+                                oneOverEffWeight = 1/hadronEffWeight;
+                                D0Eff = effWeightD0[centralityClass]->Eval(D0Pt, 0, 0, 0);
+                        
+                                oneOverD0Eff = 1/D0Eff;
+                        
+                                finalPairWeight = oneOverEffWeight*oneOverD0Eff;
+                        
+                               
+                                if(D0_HADRON_CORR){
+                                    mixCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhi, finalPairWeight); //delEta & delPhi stored in US mixed correlation histogram
+                                    mixCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp, finalPairWeight); //delEta & delPhi stored in US mixed correlation histogram
+                                    mixCorrBin[bandBin][VzBin][centralityBin]->Fill(-delEta, delPhi, finalPairWeight); //delEta & delPhi stored in US mixed correlation histogram
+                                    mixCorrBin[bandBin][VzBin][centralityBin]->Fill(delEta, delPhiCp, finalPairWeight); //delEta & delPhi stored in US mixed correlation histogram
+                                    if(ptBin > -1) { 
+                                    
+                                        mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhi, finalPairWeight);
+                                        mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhiCp, finalPairWeight);
+                                        mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(-delEta, delPhi, finalPairWeight);
+                                        mixCorrBinPt[bandBin][ptBin][VzBin][centralityBin]->Fill(delEta, delPhiCp, finalPairWeight);
+                                    }
                                 }
                             }// end loop over hadron event tracks
                         }// end loop over event D0 kaon-pion list
@@ -1276,6 +1938,25 @@ bool StPicoD0AnaMaker::cutCheck(StKaonPion const* const kp, double ptMin, double
 }
 
 
+bool StPicoD0AnaMaker::pairWisePtCutCheck(int ptBin, double kpt, double pipt, int band){
+
+    if(ptBin == 3 || ptBin == 4) { return true; }
+
+	                           //0-1,  1-2,  2-3, 3-5, 5-10 GeV/c pt-Bins
+			 
+	double ptKaonCutsLow[5]  = {.56,  .48,  .75,  0.0, 0.0};
+	double ptPionCutsLow[5]  = {1.08, .92,  1.47, 0.0, 0.0};
+	double ptKaonCutsHigh[5] = {.67,  1.14, 1.35, 0.0, 0.0};
+    double ptPionCutsHigh[5] = {1.24, 1.44, 2.13, 0.0, 0.0};
+	
+	bool passCuts = (kpt < ptKaonCutsLow[ptBin]  || kpt > ptKaonCutsHigh[ptBin]) &&
+	                (pipt < ptPionCutsLow[ptBin] || pipt > ptPionCutsHigh[ptBin]);
+					
+	return passCuts;
+	
+}
+	
+	
 int StPicoD0AnaMaker::getCentralityBin(int nTracks){
 
     /*if(nTracks >= 2   && nTracks < 16)  { return 0;  }
@@ -1327,6 +2008,17 @@ int StPicoD0AnaMaker::getVzBin(double Vz){
     if(Vz >= 2.4   && Vz < 3.6)   { return 7;  }
     if(Vz >= 3.6   && Vz < 4.8)   { return 8;  }
     if(Vz >= 4.8   && Vz < 6.0)   { return 9;  }
+	
+	/*if(Vz >= -4.0  && Vz < -3.2)  { return 0;  }   //bin 0: -6 to -4.8
+    if(Vz >= -3.2  && Vz < -2.4)  { return 1;  }      //bin 1: -4.8 to -3.6
+    if(Vz >= -2.4  && Vz < -1.6)  { return 2;  }          //bin 2: -3.6 to -2.4
+    if(Vz >= -1.6  && Vz < -0.8)  { return 3;  }      //bin 3: -2.4 to -1.2
+    if(Vz >= -0.8  && Vz < 0)     { return 4;  }      //bin 4: -1.2 to 0
+    if(Vz >= 0     && Vz < 0.8)   { return 5;  }
+    if(Vz >= 0.8   && Vz < 1.6)   { return 6;  }
+    if(Vz >= 1.6   && Vz < 2.4)   { return 7;  }
+    if(Vz >= 2.4   && Vz < 3.2)   { return 8;  }
+    if(Vz >= 3.2   && Vz < 4.0)   { return 9;  }*/
     
 
     else return -1;
@@ -1336,11 +2028,42 @@ int StPicoD0AnaMaker::getVzBin(double Vz){
 int StPicoD0AnaMaker::getPtBin(double pt){
 
     if(pt >=  0.0  && pt <  1.0)    { return 0;  }   
-    if(pt >=  1.0  && pt <  4.0)    { return 1;  }
-    if(pt >=  4.0  && pt <  20.0)   { return 2;  }        
-    //if(pt >=  3.0  && pt <  4.0)   { return 3;  }
-    //if(pt >=  4.0  && pt <  5.0)   { return 4;  }
-    //if(pt >=  5.0  && pt <  10.0)  { return 5;  }
+    if(pt >=  1.0  && pt <  2.0)    { return 1;  }
+    if(pt >=  2.0  && pt <  3.0)   { return 1;  }        
+    if(pt >=  3.0  && pt <  5.0)   { return 2;  }
+    if(pt >=  5.0  && pt <  10.0)   { return 3;  }
+    
+    
+    else return -1;
+
+}    
+
+int StPicoD0AnaMaker::getFinePtBin(double pt){
+
+    if(pt >=  0.0  && pt <  1.0)    { return 0;  }   
+    if(pt >=  1.0  && pt <  2.0)    { return 1;  }
+    if(pt >=  2.0  && pt <  3.0)    { return 2;  }
+    if(pt >=  3.0  && pt <  4.0)    { return 3;  }
+    if(pt >=  4.0  && pt <  5.0)    { return 4;  }
+    if(pt >=  5.0  && pt <  6.0)    { return 5;  }
+    if(pt >=  6.0  && pt <  7.0)    { return 6;  }
+    if(pt >=  7.0  && pt <  8.0)    { return 7;  }
+    if(pt >=  8.0  && pt <  9.0)    { return 8;  }
+    if(pt >=  9.0  && pt < 10.0)    { return 9;  }
+    if(pt >=  10.0)                 { return 10;  }
+    
+    
+    else return -1;
+
+}    
+
+int StPicoD0AnaMaker::getTopologicalCutPtBin(double pt){
+
+    if(pt >=  0.0  && pt <  1.0)    { return 0;  }   
+    if(pt >=  1.0  && pt <  2.0)    { return 1;  }
+    if(pt >=  2.0  && pt <  3.0)    { return 2;  }
+    if(pt >=  3.0  && pt <  5.0)    { return 3;  }
+    if(pt >=  5.0  && pt <  10.0)   { return 4;  }
     
     else return -1;
 
@@ -1357,9 +2080,27 @@ int StPicoD0AnaMaker::getCentralityClass(double nTracks){
 }    
 
 
+int StPicoD0AnaMaker::getUSInvMassBandBin(double mass, int charge, double USSideBandLeftLow, double USSideBandLeftHigh, double D0InvMassLow, double D0InvMassHigh,
+																	double USSideBandRightLow, double USSideBandRightHigh) const
+{
+
+	if(charge > 0 && (mass > D0InvMassLow && mass < D0InvMassHigh)) { return 3; } //LS
+
+	if(charge < 0 && (mass > D0InvMassLow && mass < D0InvMassHigh)) { return 1; }   //US  
+    
+    if(charge < 0 && (mass > USSideBandLeftLow && mass < USSideBandLeftHigh)) { return 0; }
+    
+	if(charge < 0 && (mass > USSideBandRightLow && mass < USSideBandRightHigh)) { return 2; }
+	
+	else return -1;
+	
+}
+
 bool StPicoD0AnaMaker::checkDCAtoPV(float trackDCA){
 
      return (trackDCA <= trackDCAtoPvtx);
      
 }
+
+
 

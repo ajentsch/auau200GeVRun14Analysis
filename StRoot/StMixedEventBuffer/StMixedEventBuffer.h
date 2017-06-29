@@ -36,7 +36,7 @@ public:
     int  getBufferIndex();
     int getBufferMaxSize();
     void addTrackToEvent(int index, StThreeVectorF trackMom, int charge, int PID);
-    void addKaonPionToEvent(int, StThreeVectorF kaonPionMom, double mass, int kaonIdx, int pionIdx, int charge);
+    void addKaonPionToEvent(int, StThreeVectorF kaonPionMom, double mass, int kaonIdx, int pionIdx, int charge, StThreeVectorF kaonMom, StThreeVectorF pionMom);
     StMixerEvent* getEvent(int index);
     void clearBuffer();
     void removeFirstEvent();

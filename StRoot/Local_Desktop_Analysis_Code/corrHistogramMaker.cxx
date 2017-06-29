@@ -53,12 +53,21 @@ using namespace std;
 Bool_t reject;
 Double_t fline(Double_t *x, Double_t *par)
 {
-    if ((reject && (x[0] > 1.81 && x[0] < 1.91)) || (reject && (x[0] > 1.6 && x[0] < 1.7))){
+    if ( (reject && (x[0] > 1.81 && x[0] < 1.91)) || (reject && (x[0] > 1.6 && x[0] < 1.7)) ){     //|| (reject && (x[0] > 2.0 && x[0] < 2.1))
       TF1::RejectPoint();
       return 0;
    }
    return par[0] + par[1]*x[0];
 }
+
+double calcScaleFactorforFit(double sigma)
+{
+    double preFactor = TMath::Sqrt(TMath::PiOver2());
+    
+    return preFactor*sigma*.5;
+    
+}
+        
 
 int corrHistogramMaker(){
   
@@ -77,7 +86,7 @@ int corrHistogramMaker(){
     
     double NUM_FILES_COMBINED = 1;
     
-    double ETA_RANGE = 2.0;
+    double ETA_RANGE = 1.55;
     
     TString numPhi = "12";
     TString numEta = "9";
@@ -96,7 +105,7 @@ int corrHistogramMaker(){
     bool PRINT_SUB_HISTOS_RAW = false;
     bool PRINT_SUB_HISTOS_SCALED = false;
     bool PRINT_SUB_HISTOS_DEL_RHO = false;
-    bool PRINT_DELRHO_OVER_REF_HISTOS = true;
+    bool PRINT_DELRHO_OVER_REF_HISTOS = false;
     
     
     TString mainPath       = "C:/Users/ajentsch/Desktop/";    
@@ -153,18 +162,6 @@ int corrHistogramMaker(){
                                                                                                                           
     TString binLabelCentralityClass[3] = {"_Peripheral", "_MidCentral", "_Central"};
     
-    //{{"_Peripheral", "_MidCentral", "Central", ""},{"Per", "MidCent", "Cent", ""}}
-    
-    //binLabelCentralityClass[0][0] = "_Peripheral"; 
-    //binLabelCentralityClass[0][1] = "_MidCentral";
-    //binLabelCentralityClass[0][2] = "_Central";
-    //binLabelCentralityClass[0][3] = "Central";
-    //binLabelCentralityClass[1][0] = "Per";
-    //binLabelCentralityClass[1][1] = "MidCent";
-    //binLabelCentralityClass[1][2] = "Cent";
-    //binLabelCentralityClass[1][3] = "";
-    
-    //TString binLabelCentralityClassWrong[4] = {"Per", "MidCent", "Cent", ""};
     
     double integralSideBandCounts[2];
     double integralCounts[2];
@@ -176,7 +173,7 @@ int corrHistogramMaker(){
     // US histograms
     TH2D* sibCorrBin[4][4][10][16];    //Raw US sibling histograms binned by centrality
     TH2D* mixCorrBin[4][4][10][16];    //Raw US mixed histograms binned by centrality
-    TH2D* scaledMixCorrBin[4][4][10][16];  //storage for the eventual scaled mixed US histograms  delRhoOverRhoRefUSBin[3][10][11] delRhoOverRhoRefUSBinVzInt[7][11]  delRhoOverRhoRefUSBinPhiProj[7][10][11]
+    TH2D* scaledMixCorrBin[4][4][10][16];  //storage for the eventual scaled mixed US histograms  
     TH2D* sibMinusScaledMix[4][4][10][16]; // Raw US Sibling minus scaled mixed                   
     TH2D* delRhoOverRhoRefBin[4][4][10][16];
     
@@ -235,15 +232,13 @@ int corrHistogramMaker(){
     double VzWeightFactorCustomTotal;
     
     TString fullySubtractedLabelCustomCentrality = "FullSubtractedCorr_";
-    TString centralityBin[3] = {"Peripheral", "Mid-Central", "Central"};
+    TString centralityBin[3] = {"Peripheral", "MidCentral", "Central"};
     
-    TString SibCorrLabels[4]            = {"Sibling_SideBandLeft_correlation", "Sibling_US_correlation", "Sibling_SideBandRight_correlation", "Sibling_LS_correlation"};
-    TString MixCorrLabels[4]           = {"Mixed_SideBandLeft_correlation", "Mixed_US_correlation", "Mixed_SideBandRight_correlation", "Mixed_LS_correlation"};
+    TString SibCorrLabels[4]          = {"Sibling_SideBandLeft_correlation", "Sibling_US_correlation", "Sibling_SideBandRight_correlation", "Sibling_LS_correlation"};
+    TString MixCorrLabels[4]          = {"Mixed_SideBandLeft_correlation", "Mixed_US_correlation", "Mixed_SideBandRight_correlation", "Mixed_LS_correlation"};
     TString ScaledMixCorrLabels[4]     = {"Scaled_Mixed_SideBandLeft_correlation", "Scaled_Mixed_US_correlation", "Scaled_Mixed_SideBandRight_correlation", "Scaled_Mixed_LS_correlation"};
-    TString SibMinusScaledMixLabels[4] = {"Sib_Minus_Scaled_Mix_SideBandLeft_correlation", "Sib_Minus_Scaled_Mix_US_correlation", 
-                                          "Sib_Minus_Scaled_Mix_SideBandRight_correlation", "Sib_Minus_Scaled_Mix_LS_correlation"};
-    TString delRhoOverRhoRefLabels[4]  = {"delRho_over_RhoRef_SideBandLeft_correlation", "delRho_over_RhoRef_US_correlation",
-                                          "delRho_over_RhoRef_SideBandRight_correlation", "delRho_over_RhoRef_LS_correlation"};
+    TString SibMinusScaledMixLabels[4] = {"Sib_Minus_Scaled_Mix_SideBandLeft_correlation", "Sib_Minus_Scaled_Mix_US_correlation", "Sib_Minus_Scaled_Mix_SideBandRight_correlation", "Sib_Minus_Scaled_Mix_LS_correlation"};
+    TString delRhoOverRhoRefLabels[4]  = {"delRho_over_RhoRef_SideBandLeft_correlation", "delRho_over_RhoRef_US_correlation", "delRho_over_RhoRef_SideBandRight_correlation", "delRho_over_RhoRef_LS_correlation"};
    
     TString subtractedCorrLabels[2] = {"US_Minus_SidebandAverage_Corr", "US_Minus_LS_Corr"};
     
@@ -358,7 +353,7 @@ int corrHistogramMaker(){
 //------------------------------------------------------------------
 //Code section to write information about this dataset to file
 //------------------------------------------------------------------    
-   /* histOfCuts->SetBinContent(1, D0InvMassLow); //D0InvMassLow
+    /* histOfCuts->SetBinContent(1, D0InvMassLow); //D0InvMassLow
     histOfCuts->SetBinContent(2, D0InvMassHigh); //D0InvMassHigh
     histOfCuts->SetBinContent(3, USSideBandLeftLow); //USSideBandLeftLow
     histOfCuts->SetBinContent(4, USSideBandLeftHigh); //USSideBandLeftHigh
@@ -872,7 +867,7 @@ int corrHistogramMaker(){
                 }
      
                 if(PRINT_SUB_HISTOS_DEL_RHO){ 
-                    str1 = path + outputFolders[3] + bandFolders[band] + PtSubFolders[k] + VzSubFolders[10] + SibMinusScaledMixLabels[band] + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileType;
+                    str1 = path+outputFolders[3]+bandFolders[band]+PtSubFolders[k]+VzSubFolders[10]+SibMinusScaledMixLabels[band]+PtBinLabel[k]+binLabelPt[k]+VzIntLabel + centBinLabel + binLabelCent[i] + fileType;
                     sibMinusScaledMixVzInt[band][k][i]->Draw("SURF1");
                     c->SaveAs(str1);
              
@@ -884,7 +879,7 @@ int corrHistogramMaker(){
         }// end loop to make sibling minus scaled mixed histograms (delRho)
     }
   
-   cout << "deltaRho for each band (US, LS, SBL, SBR) calculated. << endl << endl;
+   cout << "deltaRho for each band (US, LS, SBL, SBR) calculated." << endl << endl;
   
    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -903,22 +898,17 @@ int corrHistogramMaker(){
                 delRhoOverRhoRefBinPhiProjVzInt[band][k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
             
                 for(int j = 0; j < 10; j++){
-                
-                
+
                     str1 = delRhoOverRhoRefLabels[band] + PtBinLabel[k] + binLabelPt[k] + VzBinLabel + binLabelVz[j] + centBinLabel + binLabelCent[i];
                     delRhoOverRhoRefBin[band][k][j][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-               
+                    
                     if(scaledMixCorrBin[band][k][j][i]->GetEntries() > 0){
                     
                         delRhoOverRhoRefBin[band][k][j][i]->Divide(sibMinusScaledMix[band][k][j][i], scaledMixCorrBin[band][k][j][i], 1, 1);
                     }
                     
-                    
-                    
                     formatCorrHist(delRhoOverRhoRefBin[band][k][j][i]);
-        
                     //VzScaleFactorUS[j] = delRhoOverRhoRefUSBin[k][j][i]->Integral(1, NUM_ETA_BINS, 1, NUM_PHI_BINS);
-        
                     delRhoOverRhoRefBin[band][k][j][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
                 
                     if(PRINT_DELRHO_OVER_REF_HISTOS){ 
@@ -947,11 +937,6 @@ int corrHistogramMaker(){
                 if(PRINT_DELRHO_OVER_REF_HISTOS){ 
                     delRhoOverRhoRefBinVzInt[band][k][i]->Draw("SURF1");
                     c->SaveAs(str1);
-                    
-                    //str1 = path + outputFolders[4] + bandFolders[band] + PtSubFolders[k] + VzSubFolders[10] + delRhoOverRhoRefLabels[band] + PtBinLabel[k] + binLabelPt[k] + VzIntLabel + centBinLabel + binLabelCent[i] + fileTypeEps;
-                    //formatCorrHist(delRhoOverRhoRefBinVzInt[band][k][i], "");
-                    //delRhoOverRhoRefBinVzInt[band][k][i]->Draw("SURF1");
-                    //c->SaveAs(str1);
                     
                 }
             
@@ -1163,21 +1148,64 @@ int corrHistogramMaker(){
         }
  
  
+ 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
     //--------------------------------------FITTING AND PARAMETER EXTRACTION DONE HERE---------------------------------------------------------------------------------
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
  
+    TCanvas *c = new TCanvas("c3", "Histograms", 1100, 850);
  
-    TF2 *myfit   = new TF2("parameterFitFunction","[0] + [1]*cos(y) + [2]*2*cos(2*y) + [3]*(exp(-0.5*(y*y)/([4]*[4]))+exp(-0.5*((y-6.28)*(y-6.28))/([4]*[4])))*exp(-0.5*(x*x)/([5]*[5]))", -1.8, 1.8,-1.57,4.71);
+    TF2 *myfit   = new TF2("parameterFitFunction","[0] + [1]*cos(y) + [2]*2*cos(2*y) + [3]*(exp(-0.5*(y*y)/([4]*[4]))+exp(-0.5*((y-6.28)*(y-6.28))/([4]*[4])))*exp(-0.5*(x*x)/([5]*[5]))", -ETA_RANGE, ETA_RANGE,-1.57,4.71);
+    
     TF1 *myfit1D = new TF1("parameterFitFunction","[0] + [1]*cos(x) + [2]*2*cos(2*x)" , -1.57, 4.71);
+    
+    TF1 *fitProjection = new TF1("parameterFitFunction","[0] + [1]*cos(x) + [2]*2*cos(2*x) + [3]*[4]*(exp(-0.5*(x*x)/([5]*[5]))+exp(-0.5*((x-6.28)*(x-6.28))/([5]*[5])))" , -1.57, 4.71);
+    
+    TF1 *quadrupole1    = new TF1("Quadrupole", "[0]*2*cos(2*x)", -1.57, 4.71);
+    TF1 *quadrupole2    = new TF1("Quadrupole", "[0]*2*cos(2*x)", -1.57, 4.71);
+    TF1 *quadrupole3    = new TF1("Quadrupole", "[0]*2*cos(2*x)", -1.57, 4.71);
+    
+    TF1 *pileupLine1    = new TF1("PileupLine1", "[0] + [1]*x", -2.0, -1.0);
+    TF1 *pileupLine2    = new TF1("PileupLine2", "[0] + [1]*x", -1.0, 0);
+    TF1 *pileupLine3    = new TF1("PileupLine3", "[0] + [1]*x", 0, 1.0);
+    TF1 *pileupLine4    = new TF1("PileupLine4", "[0] + [1]*x", 1.0, 2.0);
+    
+    TH1D *testPileupFunc = new TH1D("test", "test", 100, -2, 2);
+    
+    //testPileupFunc->SetMaximum(1);
+    //testPileupFunc->SetMinimum(-1);
+    
+    pileupLine1->FixParameter(0, -2);
+    pileupLine1->FixParameter(1, -1);
+    pileupLine2->FixParameter(0, 1);
+    pileupLine2->FixParameter(1, 2);
+    pileupLine3->FixParameter(0, 1);
+    pileupLine3->FixParameter(1, -2);
+    pileupLine4->FixParameter(0, -2);
+    pileupLine4->FixParameter(1, 1);
+    
+    str1 = path + outputFolders[5] + outputFolders[8] + fileType;
+    testPileupFunc->Draw();
+    pileupLine1->Draw("SAME");
+    pileupLine2->Draw("SAME");
+    pileupLine3->Draw("SAME");
+    pileupLine4->Draw("SAME");
+    
+    c->SaveAs(str1); 
  
-    TH2D* fullySubtractedCorrCustomCentralityLSFit[4][3];
-    TH2D* fullySubtractedCorrCustomCentralityLSRes[4][3];
-    TH1D* fullySubtractedCorrCustomCentralityLSFitPhiProj[4][3];
-    TH1D* fullySubtractedCorrCustomCentralityLSResPhiProj[4][3];
+    TH2D* fullySubtractedCorrCustomCentralitySideBandFit[4][3];
+    TH2D* fullySubtractedCorrCustomCentralitySideBandRes[4][3];
+    TH1D* fullySubtractedCorrCustomCentralitySideBandFitPhiProj[4][3];
+    TH1D* fullySubtractedCorrCustomCentralitySideBandResPhiProj[4][3];
+    
+    TH2D* fullySubtractedCorrCustomCentralitySideBandPileupCorrected[4][3];
+    //TH2D* fullySubtractedCorrCustomCentralitySideBandRes[4][3];
+    //TH1D* fullySubtractedCorrCustomCentralitySideBandFitPhiProj[4][3];
+    //TH1D* fullySubtractedCorrCustomCentralitySideBandResPhiProj[4][3];
     
     TString fitLabel = "_Fit";
     TString resLabel = "_Residual";
+    TString pileupLabel = "PileupCorrected";
     
     ofstream fitParameterFile2D;
     TString fitParameterFileName2D = "Extracted_Parameters_from_fitting_2D.txt";
@@ -1194,77 +1222,100 @@ int corrHistogramMaker(){
     double v2_1D;
     double v2_1D_Error;
     
+    int bin1;
+    int bin2;
+    int bin3;
+    int bin4;
+    
+    double GaussIntegralParameter;
  
     for(int k = 0; k < 4; k++){
         for(int i = 0; i < 3; i++){ 
  
            
-            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
-            fullySubtractedCorrCustomCentralityLSFit[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
-            fullySubtractedCorrCustomCentralityLSRes[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
+            fullySubtractedCorrCustomCentralitySideBandFit[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
+            fullySubtractedCorrCustomCentralitySideBandRes[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
             
-            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
-            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel;
+            fullySubtractedCorrCustomCentralitySideBandFitPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+            str1 = phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel;
+            fullySubtractedCorrCustomCentralitySideBandResPhiProj[k][i] = new TH1D(str1, str1, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
+ 
+            str1 = fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + pileupLabel;
+            fullySubtractedCorrCustomCentralitySideBandPileupCorrected[k][i] = new TH2D(str1, str1, NUM_ETA_BINS, -2, 2, NUM_PHI_BINS, -TMath::PiOver2(), 3*TMath::PiOver2());
  
             fitParameterFile2D << "_________________________________________________________________________________________________________" << endl;
             fitParameterFile1D << "_________________________________________________________________________________________________________" << endl;
  
+           
+            fullySubtractedCorrCustomCentralitySideBandPileupCorrected[k][i] = (TH2D*)fullySubtractedCorrCustomCentralitySideBand[k][i]->Clone();
+
+              
+            fullySubtractedCorrCustomCentralitySideBandFit[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
+            fullySubtractedCorrCustomCentralitySideBandRes[k][i]->GetXaxis()->SetRangeUser(-ETA_RANGE, ETA_RANGE);
+
             myfit1D->SetParLimits(0, -.1, .1); //offset A0
-            myfit1D->SetParLimits(0, -.1, .1); //v1     AD
-            myfit1D->SetParLimits(0, -.1, .1); //v2     AQ
- 
+            myfit1D->SetParLimits(1, -.1, .1); //v1     AD
+            myfit1D->SetParLimits(2, -.1, .1); //v2     AQ
+            
             myfit->SetParLimits(0, -.1, .1);    //offset A0
             myfit->SetParLimits(1, -.1,  .1);    //v1     AD
             myfit->SetParLimits(2, -.1,  .1);    //v2     AQ
             myfit->SetParLimits(3,  0,  1);    //Jetamp A1
-        
-            myfit->SetParLimits(4, 0.1, 6);     //sigEta
-            myfit->SetParLimits(5, 0.1, 6);    //sigPhi
+            myfit->SetParLimits(4, 0.1, 3);     //sigPhi
+            myfit->SetParLimits(5, 0.1, 3);    //sigEta
             
             //////////////////////2d fitting///////////////////////////////////////
             
-            fullySubtractedCorrCustomCentralityLS[k][i]->Fit(myfit, "R0E");
-            fullySubtractedCorrCustomCentralityLSFit[k][i] = (TH2D*)fullySubtractedCorrCustomCentralityLS[k][i]->Clone("hfit");
-            fullySubtractedCorrCustomCentralityLSFit[k][i]->Eval(myfit);
+            fullySubtractedCorrCustomCentralitySideBand[k][i]->Fit(myfit, "qR0E");
+            //fullySubtractedCorrCustomCentralitySideBandFit[k][i] = (TH2D*)fullySubtractedCorrCustomCentralitySideBand[k][i]->Clone("hfit");
+            fullySubtractedCorrCustomCentralitySideBandFit[k][i]->Eval(myfit);
+            
+            GaussIntegralParameter = calcScaleFactorforFit(myfit->GetParameter(5));
+            
+            cout << "Pt bin: " << k << "   Cent Bin: " << i << "   ProjectionNumber: " << GaussIntegralParameter << endl;
             
             fitParameterFile2D << endl << "pt bin (3 is integrated): " << k << "    Centrality Bin (0 - per, 1 - mid cent, 2 - cent): " << i << endl;
-            fitParameterFile2D << endl << "A0" << "\t" << "AD" << "\t" <<"AQ" << "\t" <<"Jet Amp A1" << "\t" << "SigEta" << "\t" <<"SigPhi" << "\t" << endl;
+            fitParameterFile2D << endl << "A0" << "\t\t" << "AD" << "\t\t" <<"AQ" << "\t\t" <<"Jet Amp A1" << "\t\t" << "SigEta" << "\t\t" <<"SigPhi" << "\t\t" << endl;
             
             fitParameterFile2D << endl << myfit->GetParameter(0) << "\t" << myfit->GetParameter(1) << "\t" 
-                 << myfit->GetParameter(2) << "\t" << myfit->GetParameter(3) << "\t" 
-                 << myfit->GetParameter(5) << "\t" << myfit->GetParameter(4) << endl; 
+                                       << myfit->GetParameter(2) << "\t" << myfit->GetParameter(3) << "\t" 
+                                       << myfit->GetParameter(5) << "\t" << myfit->GetParameter(4) << endl; 
             
             fitParameterFile2D << myfit->GetParError(0) << "\t" << myfit->GetParError(1) << "\t" 
-                 << myfit->GetParError(2) << "\t" << myfit->GetParError(3) << "\t" 
-                 << myfit->GetParError(5) << "\t" << myfit->GetParError(4) << endl;            
+                               << myfit->GetParError(2) << "\t" << myfit->GetParError(3) << "\t" 
+                               << myfit->GetParError(5) << "\t" << myfit->GetParError(4) << endl;            
             
-            fullySubtractedCorrCustomCentralityLSRes[k][i] = (TH2D*)fullySubtractedCorrCustomCentralityLS[k][i]->Clone("hres");
+            fullySubtractedCorrCustomCentralitySideBandRes[k][i] = (TH2D*)fullySubtractedCorrCustomCentralitySideBand[k][i]->Clone("hres");
             //resHistUS[i]->Add(fitHistUS[i], angCorrUS[i], 1, -1);
-            fullySubtractedCorrCustomCentralityLSRes[k][i]->Add(fullySubtractedCorrCustomCentralityLSFit[k][i], -1);
+            fullySubtractedCorrCustomCentralitySideBandRes[k][i]->Add(fullySubtractedCorrCustomCentralitySideBandFit[k][i], -1);
             
             
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSFit[k][i]->Draw("SURF1");
+            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
+            fullySubtractedCorrCustomCentralitySideBandFit[k][i]->Draw("SURF1");
             c->SaveAs(str1);
  
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSRes[k][i]->Draw("SURF1");
+            fullySubtractedCorrCustomCentralitySideBandFit[k][i]->Write();
+            
+            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
+            fullySubtractedCorrCustomCentralitySideBandRes[k][i]->Draw("SURF1");
             c->SaveAs(str1); 
             
             /////////////////////////////1d fitting///////////////////////////////////////////
     
-            fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Fit(myfit1D, "R0E");
-            //fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Clone("hfit");
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i]->Eval(myfit1D);
+            
+    
+            fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Fit(myfit1D, "qR0E");
+            //fullySubtractedCorrCustomCentralitySideBandFitPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Clone("hfit");
+            //fullySubtractedCorrCustomCentralitySideBandFitPhiProj[k][i]->Eval(myfit1D);
  
             fitParameterFile1D << endl << "pt bin (3 is integrated): " << k << "    Centrality Bin (0 - per, 1 - mid cent, 2 - cent): " << i << endl;
-            fitParameterFile1D << endl << "A0" << "\t" << "AD" << "\t" <<"AQ" << "\t" << endl;
+            fitParameterFile1D << endl << "A0" << "\t\t" << "AD" << "\t\t" <<"AQ" << endl; // "\t\t" << "Jet Amp A1" << "\t\t" << "SigPhi" << endl;
             
-            fitParameterFile1D << endl << myfit1D->GetParameter(0) << "\t" << myfit1D->GetParameter(1) << "\t" << myfit1D->GetParameter(2) << endl; 
-            fitParameterFile1D << myfit1D->GetParError(0) << "\t" << myfit1D->GetParError(1) << "\t" << myfit1D->GetParError(2) << endl; 
+            fitParameterFile1D << endl << myfit1D->GetParameter(0) << "\t" << myfit1D->GetParameter(1) << "\t" << myfit1D->GetParameter(2) << endl; //<< "\t" << myfit1D->GetParameter(3) << "\t" << myfit1D->GetParameter(5) << endl; 
+            fitParameterFile1D << myfit1D->GetParError(0) << "\t" << myfit1D->GetParError(1) << "\t" << myfit1D->GetParError(2) << endl;//<< "\t" << myfit1D->GetParError(3) << "\t" << myfit1D->GetParError(5) << endl; 
             
             v2_2D = TMath::Sqrt(myfit->GetParameter(2));
             v2_2D_Error = v2_2D*(.5)*(myfit->GetParError(2)/myfit->GetParameter(2));
@@ -1275,19 +1326,42 @@ int corrHistogramMaker(){
             fitParameterFile2D << "V2 = " << v2_2D << " +/- " << v2_2D_Error << endl;
             fitParameterFile1D << "V2 = " << v2_1D << " +/- " << v2_1D_Error << endl;
             
+            fitProjection->SetParameter(0, myfit->GetParameter(0));
+            fitProjection->SetParameter(1, myfit->GetParameter(1));
+            fitProjection->SetParameter(2, myfit->GetParameter(2));
+            fitProjection->SetParameter(3, myfit->GetParameter(3));
+            fitProjection->SetParameter(5, myfit->GetParameter(4));
+            fitProjection->SetParameter(4, GaussIntegralParameter);
             
+            quadrupole1->SetParameter(0, myfit->GetParameter(2));
+            quadrupole2->SetParameter(0, myfit1D->GetParameter(2));
+            quadrupole3->SetParameter(0, fitProjection->GetParameter(2));
             
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralityLSPhiProj[k][i]->Clone("hres");
+            fitProjection->SetLineColor(2); //red
+            quadrupole1->SetLineColor(3); // Green, from 2D fit
+            quadrupole2->SetLineColor(4); //blue, from 1D fit
+            myfit1D->SetLineColor(7); // light blue
+            quadrupole3->SetLineColor(41);
+            
+            fullySubtractedCorrCustomCentralitySideBandResPhiProj[k][i] = (TH1D*)fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Clone("hres");
             //resHistUS[i]->Add(fitHistUS[i], angCorrUS[i], 1, -1);
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i]->Add(fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i], -1);
+            fullySubtractedCorrCustomCentralitySideBandResPhiProj[k][i]->Add(myfit1D, -1);
             
             
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSFitPhiProj[k][i]->Draw();
+            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + fitLabel + fileType;
+            //fullySubtractedCorrCustomCentralitySideBandFitPhiProj[k][i]->Draw();
+            fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->Draw("EX0");
+            fullySubtractedCorrCustomCentralitySideBandPhiProj[k][i]->SetMarkerStyle(20);
+            
+            fitProjection->Draw("SAME");
+            quadrupole1->Draw("SAME");
+            quadrupole2->Draw("SAME");
+            //quadrupole3->Draw("SAME");
+            myfit1D->Draw("SAME");
             c->SaveAs(str1);
  
-            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[0] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
-            fullySubtractedCorrCustomCentralityLSResPhiProj[k][i]->Draw();
+            str1 = path + outputFolders[5] + outputFolders[8] + PtSubFolders[k] + phiProj + fullySubtractedLabelCustomCentrality + bandSubtract[1] + PtBinLabel[k] + binLabelPt[k] + centralityBin[i] + resLabel + fileType;
+            fullySubtractedCorrCustomCentralitySideBandResPhiProj[k][i]->Draw();
             c->SaveAs(str1); 
  
  
@@ -1296,6 +1370,75 @@ int corrHistogramMaker(){
  
     fitParameterFile2D.close();
     fitParameterFile1D.close();
+ 
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+    //--------------------------------------Histogram formatting and output for talks----------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+    TCanvas *talkCanvas = new TCanvas("c3", "Histograms", 3300, 1700);
+    talkCanvas->Divide(3,2);
+    
+    int padNumber = 1;
+    TString talkOutput = "Histograms_for_talk";
+    TString ptRanges[2] = {" 1 < p_{t} < 4 GeV ", " 4 < p_{t} < 20 GeV "};
+    TString centRanges[3] = {" 50-100% ", " 20-50% ", " 0-20% "};
+    
+    double xValueforPave[3] = {1000, 2100, 3200};
+    double yValueforPave[2] = {300, 1150};
+    
+    TString firstLine;
+    TString secondLine;
+    
+    //PaveText *textBox = new TPaveText(
+    
+    for(int k = 1; k < 3; k++){
+            for(int i = 0; i < 3; i++){
+ 
+                
+                formatCorrHist(fullySubtractedCorrCustomCentralitySideBand[k][i]);
+                
+                talkCanvas->cd(padNumber);
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->SetStats(false);
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->SetTitle();
+                fullySubtractedCorrCustomCentralitySideBand[k][i]->Draw("SURF1");
+                
+                TPaveText *textBox = new TPaveText(0.8, 0.8, 1.0, 1.0, "NDC");
+                
+                firstLine = ptRanges[k-1];
+                secondLine = centRanges[i];
+                
+                textBox->AddText(firstLine.Data());
+                textBox->AddText(secondLine.Data());
+                textBox->Draw();
+ 
+ 
+                padNumber++;
+        }    
+    }
+ 
+    str1 = path + talkOutput + fileType;
+    talkCanvas->SaveAs(str1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     file->Close();
     output->Close();
    

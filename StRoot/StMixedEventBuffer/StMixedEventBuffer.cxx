@@ -55,10 +55,10 @@ void StMixedEventBuffer::addTrackToEvent(int index, StThreeVectorF trackMom, int
 }    
     
     
-void StMixedEventBuffer::addKaonPionToEvent(int index, StThreeVectorF kaonPionMom, double mass, int kaonIdx, int pionIdx, int charge){
+void StMixedEventBuffer::addKaonPionToEvent(int index, StThreeVectorF kaonPionMom, double mass, int kaonIdx, int pionIdx, int charge, StThreeVectorF kaonMom, StThreeVectorF pionMom){
 
     StMixerEvent* event = mEventsList.at(index);
-    StMixerTrack trk = StMixerTrack(kaonPionMom, mass, kaonIdx, pionIdx, charge);
+    StMixerTrack trk = StMixerTrack(kaonPionMom, mass, kaonIdx, pionIdx, charge, kaonMom, pionMom);
     
     event->addKaonPion(trk);
     
